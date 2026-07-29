@@ -17,6 +17,10 @@ JavaFX-Desktopanwendung für Handball (erweiterbar für andere Sportarten) mit z
 
 ![Publikumsanzeige](docs/screenshot-anzeige.png)
 
+Eine Schritt-für-Schritt-Anleitung für Anwender (Installation, Anzeige auf den
+zweiten Bildschirm bringen, Konfiguration) steht in
+[docs/anleitung.md](docs/anleitung.md).
+
 ## Starten
 
 Voraussetzungen: JDK 21+ (entwickelt mit JDK 25) und Maven.
