@@ -1,0 +1,78 @@
+/* Die Farbwerte hier sind nur Fallbacks: die CSS-Variablen (looked-up colors)
+   werden zur Laufzeit vom aktiven Theme überschrieben, siehe ThemeColor/Theme. */
+.root {
+    -color-bg-top: #1a3399;
+    -color-bg-middle: #0d1017;
+    -color-bg-bottom: #ffff66;
+    -color-clock: #ffd54a;
+    -color-status: #8b93a3;
+    -color-team-name: #d7dce5;
+    -color-score: white;
+    -color-penalty: #ff6b6b;
+    -color-penalty-fill: #ff6b6b1f;
+    -color-timeout: #6fdc6f;
+    -color-timeout-fill: #6fdc6f1f;
+    -color-header: #8b93a3;
+    -color-footer: #8b93a3;
+    -fx-background-color: linear-gradient(to bottom,
+        -color-bg-top 0%, -color-bg-middle 55%, -color-bg-bottom 100%);
+}
+
+/* Uhr, Tore, Teamnamen, Strafen, Timeout und Statuszeile: font-size kommt aus
+   DisplayWindow (Standard-em mal konfigurierbarem Größenfaktor des Themes),
+   deshalb hier bewusst keine */
+.clock {
+    -fx-text-fill: -color-clock;
+    -fx-font-weight: bold;
+}
+
+.phase {
+    -fx-text-fill: -color-status;
+    -fx-font-weight: bold;
+}
+
+.team-name {
+    -fx-text-fill: -color-team-name;
+    -fx-font-weight: bold;
+}
+
+.score {
+    -fx-text-fill: -color-score;
+    -fx-font-weight: bold;
+}
+
+.penalty {
+    -fx-text-fill: -color-penalty;
+    -fx-font-weight: bold;
+    -fx-background-color: -color-penalty-fill;
+    -fx-background-radius: 0.45em;
+    -fx-padding: 0.05em 0.4em 0.05em 0.4em;
+}
+
+.timeout {
+    -fx-text-fill: -color-timeout;
+    -fx-font-weight: bold;
+    -fx-background-color: -color-timeout-fill;
+    -fx-background-radius: 0.45em;
+    -fx-padding: 0.05em 0.4em 0.05em 0.4em;
+}
+
+.timeout-dots {
+    -fx-text-fill: -color-timeout;
+}
+
+/* Schriftgröße kommt nicht aus dem em-Raster des Spielstands, sondern wird in
+   DisplayWindow direkt an die Höhe der Banner-Zone gebunden (skaliert mit dem
+   konfigurierbaren Größenfaktor des Themes) */
+.header {
+    -fx-text-fill: -color-header;
+}
+
+.footer {
+    -fx-text-fill: -color-footer;
+}
+
+.placeholder {
+    -fx-text-fill: -color-status;
+    -fx-font-size: 1.5em;
+}

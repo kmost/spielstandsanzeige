@@ -1,0 +1,24 @@
+name: CI
+
+# Baut und testet die Spielstandsanzeige bei jedem Push und Pull Request.
+# Die Tests betreffen nur das UI-freie Model (javafx.base) und laufen
+# deshalb problemlos headless auf dem Linux-Runner.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Bauen und Tests ausführen
+        run: mvn -B test

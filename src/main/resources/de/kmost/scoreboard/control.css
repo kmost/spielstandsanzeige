@@ -1,0 +1,100 @@
+/* Stile der Kampfgericht-Konsole. Die Farbwerte in .root sind nur Fallbacks:
+   die CSS-Variablen werden zur Laufzeit vom aktiven Theme überschrieben. */
+
+.root {
+    -color-bg-top: #05070c;
+    -color-bg-middle: #0d1017;
+    -color-bg-bottom: #141926;
+    -color-clock: #ffd54a;
+    -color-status: #8b93a3;
+    -color-team-name: #d7dce5;
+    -color-score: white;
+    -color-penalty: #ff6b6b;
+    -color-timeout: #6fdc6f;
+}
+
+/* --- Setup-Bereich --- */
+
+.team-card {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-background-radius: 10;
+    -fx-border-color: derive(-fx-text-box-border, 40%);
+    -fx-border-radius: 10;
+}
+
+.team-card-title {
+    -fx-font-weight: bold;
+    -fx-text-fill: derive(-fx-text-base-color, 40%);
+}
+
+.create-button {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+/* --- Spielsteuerung: nutzt die Theme-Farben der Publikumsanzeige ---
+   Alle Größen in em: die Basis-Schriftgröße setzt ControlWindow abhängig von
+   der Fenstergröße auf den Spielbereich (13 px bei Standardgröße 940×700) —
+   der ganze Bereich skaliert dadurch gemeinsam mit dem Fenster. */
+
+.game-pane {
+    -fx-background-color: linear-gradient(to bottom,
+        -color-bg-top 0%, -color-bg-middle 55%, -color-bg-bottom 100%);
+    -fx-background-radius: 10;
+}
+
+.game-clock {
+    -fx-text-fill: -color-clock;
+    -fx-font-size: 4em;
+    -fx-font-weight: bold;
+    -fx-font-family: "Menlo", "Consolas", "Monospaced";
+}
+
+.game-phase {
+    -fx-text-fill: -color-status;
+    -fx-font-size: 1.23em;
+}
+
+.game-score {
+    -fx-text-fill: -color-score;
+    -fx-font-size: 3.7em;
+    -fx-font-weight: bold;
+    -fx-font-family: "Menlo", "Consolas", "Monospaced";
+}
+
+.game-team-name {
+    -fx-text-fill: -color-team-name;
+    -fx-font-size: 1.38em;
+    -fx-font-weight: bold;
+}
+
+.game-timeout-dots {
+    -fx-text-fill: -color-timeout;
+    -fx-font-size: 1.23em;
+}
+
+.game-placeholder {
+    -fx-text-fill: -color-status;
+    -fx-font-size: 1.08em;
+}
+
+/* klickbare Zeilen (Strafe abbrechen / Timeout beenden): Standard-Buttons, deren
+   Textfarbe zum Lesen auf hellem Button-Grund vom Theme abgedunkelt wird */
+.game-penalty-row {
+    -fx-font-family: "Menlo", "Consolas", "Monospaced";
+    -fx-text-fill: derive(-color-penalty, -35%);
+}
+
+.game-timeout-row {
+    -fx-font-size: 1.23em;
+    -fx-font-weight: bold;
+    -fx-text-fill: derive(-color-timeout, -45%);
+}
+
+.big-button {
+    -fx-font-size: 1.23em;
+}
+
+.goal-button {
+    -fx-font-size: 1.54em;
+}

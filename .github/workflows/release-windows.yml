@@ -1,0 +1,108 @@
+name: Windows-Release bauen
+
+# Baut bei jedem Versions-Tag (v1.2.3) eine Windows-EXE mit eingebetteter
+# Java-Runtime (jpackage), erstellt das GitHub-Release und hängt die Dateien an:
+#   - Spielstandsanzeige-<version>.exe  → Installer (ohne Adminrechte, Startmenü-Eintrag)
+#   - ...-windows-portable.zip          → entpacken und Spielstandsanzeige.exe starten
+# Release veröffentlichen: git tag v1.2.3 && git push origin v1.2.3
+# Kann über workflow_dispatch auch manuell laufen (Ergebnis dann als Workflow-Artifact).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: WiX Toolset sicherstellen (für jpackage --type exe)
+        run: |
+          if (-not (Get-Command candle.exe -ErrorAction SilentlyContinue)) {
+            choco install wixtoolset -y --no-progress
+            "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+
+      - name: Version aus Tag ableiten
+        run: |
+          # jpackage verlangt Versionen der Form x.y.z mit Hauptversion >= 1,
+          # daher Tags wie v1.2.3 verwenden; sonst greift der Fallback.
+          $version = '${{ github.ref_name }}' -replace '^v', ''
+          if ($version -notmatch '^[1-9]\d*\.\d+\.\d+$') { $version = '1.0.0' }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Bauen und Tests ausführen
+        run: mvn -B package
+
+      - name: App-Jar und Abhängigkeiten einsammeln
+        run: |
+          mvn -B dependency:copy-dependencies "-DoutputDirectory=target/dist" "-DincludeScope=runtime"
+          Copy-Item target/spielstandsanzeige-*.jar target/dist/
+
+      - name: Installer-EXE bauen (jpackage)
+        run: |
+          $mainJar = (Get-ChildItem target/dist -Filter 'spielstandsanzeige-*.jar' | Select-Object -First 1).Name
+          jpackage --type exe `
+            --name Spielstandsanzeige `
+            --app-version $env:APP_VERSION `
+            --vendor 'Knut Most' `
+            --input target/dist `
+            --main-jar $mainJar `
+            --main-class de.kmost.scoreboard.Main `
+            --java-options '--enable-native-access=ALL-UNNAMED' `
+            --icon packaging/Spielstandsanzeige.ico `
+            --win-per-user-install --win-menu --win-shortcut --win-shortcut-prompt `
+            --dest target/installer
+          Get-ChildItem target/installer
+
+      - name: Portable Version bauen (ZIP mit EXE)
+        run: |
+          $mainJar = (Get-ChildItem target/dist -Filter 'spielstandsanzeige-*.jar' | Select-Object -First 1).Name
+          jpackage --type app-image `
+            --name Spielstandsanzeige `
+            --app-version $env:APP_VERSION `
+            --vendor 'Knut Most' `
+            --input target/dist `
+            --main-jar $mainJar `
+            --main-class de.kmost.scoreboard.Main `
+            --java-options '--enable-native-access=ALL-UNNAMED' `
+            --icon packaging/Spielstandsanzeige.ico `
+            --dest target/app
+          Compress-Archive -Path target/app/Spielstandsanzeige -DestinationPath "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip"
+
+      - name: Release erstellen und Artefakte anhängen
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "Spielstandsanzeige $tag" --generate-notes
+          }
+          gh release upload $tag `
+            (Get-ChildItem target/installer/*.exe).FullName `
+            "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip" `
+            --clobber
+
+      - name: Artefakte als Workflow-Artifact sichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: spielstandsanzeige-windows
+          path: |
+            target/installer/*.exe
+            target/*.zip
