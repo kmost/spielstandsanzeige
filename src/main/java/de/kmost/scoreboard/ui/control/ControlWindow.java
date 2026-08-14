@@ -467,7 +467,11 @@ public class ControlWindow {
             }
         });
 
-        Button nextPeriodButton = new Button("⏭ 2. Halbzeit starten");
+        Button nextPeriodButton = new Button();
+        nextPeriodButton.textProperty().bind(Bindings.createStringBinding(
+                () -> "⏭ " + (clock.periodProperty().get() + 1) + ". "
+                        + state.config().mode().periodName() + " starten",
+                clock.periodProperty()));
         nextPeriodButton.getStyleClass().add("big-button");
         nextPeriodButton.disableProperty().bind(
                 clock.phaseProperty().isNotEqualTo(GameClock.Phase.HALF_TIME));
@@ -512,10 +516,14 @@ public class ControlWindow {
                 clock.elapsedMillisProperty().get(), clock.currentPeriodEndMillis(),
                 state.config().direction()));
         dialog.setTitle("Spielzeit stellen");
+        long periodStart = (long) (clock.periodProperty().get() - 1)
+                * state.config().periodMillis();
         dialog.setHeaderText(countUp
-                ? "Gespielte Zeit (MM:SS) — bei zwei Halbzeiten läuft die 2. ab "
-                        + TimeFormatter.formatClock(state.config().periodMillis(),
-                                0, ClockDirection.UP)
+                ? "Gespielte Zeit (MM:SS)" + (state.config().mode().periodCount() > 1
+                        ? " — " + state.config().mode().periodName() + " "
+                                + clock.periodProperty().get() + " läuft ab "
+                                + TimeFormatter.formatClock(periodStart, 0, ClockDirection.UP)
+                        : "")
                 : "Restzeit der aktuellen Periode (MM:SS)");
         dialog.setContentText("Zeit:");
         dialog.showAndWait().ifPresent(text -> {
@@ -679,14 +687,15 @@ public class ControlWindow {
 
     private static String phaseText(GameState state) {
         GameClock clock = state.clock();
-        boolean twoHalves = state.config().mode() == GameMode.TWO_HALVES;
+        GameMode mode = state.config().mode();
+        boolean multiPeriod = mode.periodCount() > 1;
         return switch (clock.phaseProperty().get()) {
             case NOT_STARTED -> "Bereit";
-            case RUNNING -> twoHalves
-                    ? clock.periodProperty().get() + ". Halbzeit läuft"
+            case RUNNING -> multiPeriod
+                    ? clock.periodProperty().get() + ". " + mode.periodName() + " läuft"
                     : "Spielzeit läuft";
             case PAUSED -> "Pausiert";
-            case HALF_TIME -> "Halbzeitpause";
+            case HALF_TIME -> mode.breakName();
             case FINISHED -> "Spielende";
         };
     }

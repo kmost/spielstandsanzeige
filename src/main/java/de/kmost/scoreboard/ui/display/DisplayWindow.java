@@ -547,10 +547,10 @@ public class DisplayWindow {
     /** Kurzform zwischen den Toranzeigen: „1. HZ“, „Pause“, „Ende“. */
     private static String periodText(GameState state) {
         GameClock clock = state.clock();
-        boolean twoHalves = state.config().mode() == GameMode.TWO_HALVES;
+        GameMode mode = state.config().mode();
         return switch (clock.phaseProperty().get()) {
-            case NOT_STARTED, RUNNING, PAUSED -> twoHalves
-                    ? clock.periodProperty().get() + ". HZ"
+            case NOT_STARTED, RUNNING, PAUSED -> mode.periodCount() > 1
+                    ? clock.periodProperty().get() + ". " + mode.periodAbbreviation()
                     : "";
             case HALF_TIME -> "Pause";
             case FINISHED -> "Ende";

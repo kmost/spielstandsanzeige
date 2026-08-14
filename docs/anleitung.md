@@ -49,9 +49,9 @@ nötig.
 
 ## 5. Während des Spiels
 
-- **Start / Pause / Fortsetzen** steuert die Spieluhr. Bei Halbzeit- und
-  Spielende stoppt die Uhr automatisch und die Hupe ertönt; die 2. Halbzeit
-  starten Sie manuell.
+- **Start / Pause / Fortsetzen** steuert die Spieluhr. Am Ende jedes
+  Spielabschnitts stoppt die Uhr automatisch und die Hupe ertönt; den nächsten
+  Abschnitt (2. Halbzeit bzw. 2./3. Drittel) starten Sie manuell.
 - Pro Team: **+1 Tor / −1 Tor**, **„2 Minuten“** für Zeitstrafen (optional mit
   Trikotnummer) und **Team-Timeout** (1-Minuten-Countdown mit Hupe).
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder

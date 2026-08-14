@@ -61,7 +61,7 @@ public class GameClock {
         phase.set(Phase.PAUSED);
     }
 
-    /** Startet die nächste Periode (2. Halbzeit); nur aus der Halbzeitpause heraus erlaubt. */
+    /** Startet die nächste Periode (2. Halbzeit bzw. nächstes Drittel); nur aus der Pause heraus erlaubt. */
     public void startNextPeriod() {
         if (phase.get() != Phase.HALF_TIME) {
             return;

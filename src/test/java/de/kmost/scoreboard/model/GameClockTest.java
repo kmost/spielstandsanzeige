@@ -105,6 +105,30 @@ class GameClockTest {
     }
 
     @Test
+    void threeThirdsPauseTwiceAndFinishAfterThirdPeriod() {
+        GameClock clock = clock(GameMode.THREE_THIRDS);
+        AtomicInteger hornCount = new AtomicInteger();
+        clock.setOnPeriodEnd(hornCount::incrementAndGet);
+        clock.start();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.HALF_TIME, clock.phaseProperty().get());
+        clock.startNextPeriod();
+        assertEquals(2, clock.periodProperty().get());
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.HALF_TIME, clock.phaseProperty().get());
+        assertEquals(2 * PERIOD_MILLIS, clock.elapsedMillisProperty().get());
+        clock.startNextPeriod();
+        assertEquals(3, clock.periodProperty().get());
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
+        assertEquals(3 * PERIOD_MILLIS, clock.elapsedMillisProperty().get());
+        assertEquals(3, hornCount.get());
+    }
+
+    @Test
     void singlePeriodFinishesDirectly() {
         GameClock clock = clock(GameMode.SINGLE_PERIOD);
         clock.start();
