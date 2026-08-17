@@ -131,6 +131,15 @@ public class DisplayPreview extends Application {
         }
         finishRegulation(state, config);
         state.startShootout(TeamSide.HOME);
+        // -Dpreview.shootoutPairs=N: N unentschiedene Wurf-Paare (prüft langes
+        // Sudden Death samt „…“-Verdrängung); ohne Angabe eine laufende 3. Runde
+        int pairs = Integer.getInteger("preview.shootoutPairs", 0);
+        if (pairs > 0) {
+            for (int i = 0; i < 2 * pairs; i++) {
+                state.recordShootoutAttempt(true);
+            }
+            return;
+        }
         state.recordShootoutAttempt(true);  // Heim ●
         state.recordShootoutAttempt(false); // Gast ○
         state.recordShootoutAttempt(true);  // Heim ●

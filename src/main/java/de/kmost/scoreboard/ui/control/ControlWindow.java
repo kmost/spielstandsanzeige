@@ -116,7 +116,14 @@ public class ControlWindow {
 
         root.setTop(buildSetupPane());
         root.setCenter(buildPlaceholder());
-        gameState.addListener((obs, oldState, state) -> root.setCenter(buildGamePane(state)));
+        gameState.addListener((obs, oldState, state) -> {
+            root.setCenter(buildGamePane(state));
+            if (state != null) {
+                // Start des 7-m-Werfens: Spielsteuerung mit eigener Werfen-Zeile neu aufbauen
+                state.shootoutProperty().addListener(
+                        (o, oldShootout, shootout) -> root.setCenter(buildGamePane(state)));
+            }
+        });
 
         Scene scene = new Scene(root, width, height);
         scene.getStylesheets().add(
@@ -382,10 +389,21 @@ public class ControlWindow {
         // starten“) nicht nach außen tragen: eingepasst wird per fitToCellWidth
         pane.setMinWidth(0);
         pane.getColumnConstraints().add(percentColumn(100));
-        pane.getRowConstraints().addAll(percentRow(45), percentRow(30), percentRow(25));
-        pane.add(topRow, 0, 0);
-        pane.add(scoreRow, 0, 1);
-        pane.add(nameRow, 0, 2);
+        Shootout shootout = state.shootoutProperty().get();
+        if (shootout == null) {
+            pane.getRowConstraints().addAll(percentRow(45), percentRow(30), percentRow(25));
+            pane.add(topRow, 0, 0);
+            pane.add(scoreRow, 0, 1);
+            pane.add(nameRow, 0, 2);
+        } else {
+            // beim 7-m-Werfen bekommt die Wurf-Steuerung eine eigene Zeile in voller Breite
+            pane.getRowConstraints().addAll(
+                    percentRow(32), percentRow(25), percentRow(26), percentRow(17));
+            pane.add(topRow, 0, 0);
+            pane.add(buildShootoutPane(state, shootout), 0, 1);
+            pane.add(scoreRow, 0, 2);
+            pane.add(nameRow, 0, 3);
+        }
         // Basis-Schriftgröße an die Höhe des Spielbereichs selbst gebunden
         // (nicht ans Fenster: der feste Setup-Bereich oben ließe die Zonen sonst
         // schneller wachsen als die Schrift). 13 px bei Standardgröße 940×700
@@ -555,14 +573,7 @@ public class ControlWindow {
                 rebuildTimeoutRow(state, timeoutBox));
         rebuildTimeoutRow(state, timeoutBox);
 
-        VBox shootoutBox = new VBox(6);
-        shootoutBox.setAlignment(Pos.CENTER);
-        fitToCellWidth(shootoutBox, HPos.LEFT);
-        state.shootoutProperty().addListener((obs, oldShootout, shootout) ->
-                rebuildShootoutBox(state, shootoutBox));
-        rebuildShootoutBox(state, shootoutBox);
-
-        VBox clockBox = new VBox(6, clockLine, phaseLabel, clockButtons, timeoutBox, shootoutBox);
+        VBox clockBox = new VBox(6, clockLine, phaseLabel, clockButtons, timeoutBox);
         // mittig in der Raster-Zeile (wie die Uhr auf der Anzeige), damit bei
         // großen Fenstern kein Loch zwischen Uhr-Gruppe und Tor-Zeile entsteht
         clockBox.setAlignment(Pos.CENTER);
@@ -625,17 +636,17 @@ public class ControlWindow {
         });
     }
 
+    /** Sichtbare Runden der Wurf-Tabelle; ältere Runden verlassen die Tabelle per „…“. */
+    private static final int SHOOTOUT_VISIBLE_ROUNDS = 15;
+
     /**
-     * Steuerung des laufenden 7-m-Werfens unter der Uhr: wer wirft, Tor/Kein Tor,
-     * Trefferfolge beider Teams und die Rücknahme von Fehleingaben. Ein Tor zählt
-     * auf den Spielstand; am Ende steht der Sieger in der Statuszeile.
+     * Eigene Zeile für das laufende 7-m-Werfen in voller Breite: Status, die in
+     * diesem Moment wichtigsten Knöpfe Tor/Kein Tor (gleich groß und deutlich
+     * größer als alles andere) samt Rücknahme von Fehleingaben und die dezent
+     * durchnummerierte Wurf-Tabelle beider Teams. Ein Tor zählt auf den
+     * Spielstand; am Ende steht der Sieger in der Statuszeile.
      */
-    private void rebuildShootoutBox(GameState state, VBox shootoutBox) {
-        Shootout shootout = state.shootoutProperty().get();
-        if (shootout == null) {
-            shootoutBox.getChildren().clear();
-            return;
-        }
+    private Node buildShootoutPane(GameState state, Shootout shootout) {
         Label statusLabel = new Label();
         statusLabel.getStyleClass().add("game-phase");
         statusLabel.textProperty().bind(Bindings.createStringBinding(
@@ -651,32 +662,82 @@ public class ControlWindow {
                 shootout.winnerProperty(), shootout.nextThrowerProperty(), shootout.attempts()));
 
         Button goalButton = new Button("⚽ Tor");
-        goalButton.getStyleClass().add("big-button");
+        goalButton.getStyleClass().add("shootout-goal-button");
         goalButton.setOnAction(e -> state.recordShootoutAttempt(true));
         Button missButton = new Button("❌ Kein Tor");
-        missButton.getStyleClass().add("big-button");
+        missButton.getStyleClass().add("shootout-miss-button");
         missButton.setOnAction(e -> state.recordShootoutAttempt(false));
+        // gleich große Knöpfe: „Kein Tor“ ist der breitere und behält seine natürliche
+        // Breite, „Tor“ übernimmt sie — nichts wird mit „…“ gekürzt
+        missButton.setMinWidth(Region.USE_PREF_SIZE);
+        goalButton.prefWidthProperty().bind(missButton.widthProperty());
         for (Button button : List.of(goalButton, missButton)) {
-            button.setMinWidth(Region.USE_PREF_SIZE);
             button.disableProperty().bind(shootout.winnerProperty().isNotNull());
         }
+        HBox bigButtons = new HBox(10, goalButton, missButton);
+        bigButtons.setAlignment(Pos.CENTER);
+
         Button undoButton = new Button("↩ Wurf zurücknehmen");
         undoButton.setMinWidth(Region.USE_PREF_SIZE);
         undoButton.disableProperty().bind(Bindings.isEmpty(shootout.attempts()));
         undoButton.setOnAction(e -> state.undoShootoutAttempt());
-        HBox buttons = new HBox(10, goalButton, missButton, undoButton);
-        buttons.setAlignment(Pos.CENTER);
 
-        Label attemptsLabel = new Label();
-        attemptsLabel.getStyleClass().add("game-timeout-dots");
-        attemptsLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> state.config().teamName(TeamSide.HOME) + ":  "
-                        + shootout.symbols(TeamSide.HOME) + "    "
-                        + state.config().teamName(TeamSide.GUEST) + ":  "
-                        + shootout.symbols(TeamSide.GUEST),
-                shootout.attempts()));
+        HBox buttonRow = new HBox(12, bigButtons, undoButton);
+        buttonRow.setAlignment(Pos.CENTER);
 
-        shootoutBox.getChildren().setAll(statusLabel, buttons, attemptsLabel);
+        GridPane table = new GridPane();
+        table.setHgap(10);
+        table.setVgap(2);
+        shootout.attempts().addListener((ListChangeListener<Shootout.Attempt>) change ->
+                rebuildAttemptsTable(table, shootout));
+        rebuildAttemptsTable(table, shootout);
+        HBox tableLine = new HBox(table);
+        tableLine.setAlignment(Pos.CENTER);
+        fitToCellWidth(tableLine, HPos.CENTER);
+
+        VBox pane = new VBox(8, statusLabel, buttonRow, tableLine);
+        pane.setAlignment(Pos.CENTER);
+        return pane;
+    }
+
+    /**
+     * Wurf-Tabelle: oben dezente Rundennummern, darunter je Team die Trefferfolge
+     * (● Tor, ○ Fehlwurf). Passen nicht mehr alle Runden hinein, verlassen die
+     * ältesten die Tabelle („…“) — die jüngsten Würfe bleiben immer sichtbar.
+     */
+    private static void rebuildAttemptsTable(GridPane table, Shootout shootout) {
+        table.getChildren().clear();
+        List<Shootout.Attempt> home = shootout.attemptsFor(TeamSide.HOME);
+        List<Shootout.Attempt> guest = shootout.attemptsFor(TeamSide.GUEST);
+        int rounds = Math.max(home.size(), guest.size());
+        int firstRound = Math.max(0, rounds - SHOOTOUT_VISIBLE_ROUNDS);
+        addTableCell(table, 0, 1, TeamSide.HOME.label(), "game-shootout-team");
+        addTableCell(table, 0, 2, TeamSide.GUEST.label(), "game-shootout-team");
+        int column = 1;
+        if (firstRound > 0) {
+            addTableCell(table, column, 1, "…", "game-shootout-symbol");
+            addTableCell(table, column, 2, "…", "game-shootout-symbol");
+            column++;
+        }
+        for (int round = firstRound; round < rounds; round++, column++) {
+            addTableCell(table, column, 0, String.valueOf(round + 1), "game-shootout-number");
+            if (round < home.size()) {
+                addTableCell(table, column, 1,
+                        home.get(round).goal() ? "●" : "○", "game-shootout-symbol");
+            }
+            if (round < guest.size()) {
+                addTableCell(table, column, 2,
+                        guest.get(round).goal() ? "●" : "○", "game-shootout-symbol");
+            }
+        }
+    }
+
+    private static void addTableCell(GridPane table, int column, int row,
+            String text, String styleClass) {
+        Label label = new Label(text);
+        label.getStyleClass().add(styleClass);
+        table.add(label, column, row);
+        GridPane.setHalignment(label, column == 0 ? HPos.LEFT : HPos.CENTER);
     }
 
     /**

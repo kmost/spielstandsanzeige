@@ -107,4 +107,14 @@ class ShootoutTest {
         assertEquals("● ○", shootout.symbols(TeamSide.HOME));
         assertEquals("○ ●", shootout.symbols(TeamSide.GUEST));
     }
+
+    @Test
+    void cappedSymbolsDropOldestAttemptsFirst() {
+        Shootout shootout = new Shootout(TeamSide.HOME);
+        throwPair(shootout, true, true);
+        throwPair(shootout, true, true);
+        throwPair(shootout, false, true);
+        assertEquals("● ● ○", shootout.symbols(TeamSide.HOME, 5));
+        assertEquals("… ● ○", shootout.symbols(TeamSide.HOME, 2));
+    }
 }

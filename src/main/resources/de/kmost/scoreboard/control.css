@@ -95,6 +95,39 @@
     -fx-font-size: 1.23em;
 }
 
+/* 7-m-Werfen: Tor / Kein Tor sind in diesem Moment die wichtigsten Knöpfe —
+   gleich groß (je eine 50-%-Spalte) und deutlich größer als alles andere */
+.shootout-goal-button, .shootout-miss-button {
+    -fx-font-size: 1.85em;
+    -fx-font-weight: bold;
+}
+
+.shootout-goal-button {
+    -fx-text-fill: derive(-color-timeout, -45%);
+}
+
+.shootout-miss-button {
+    -fx-text-fill: derive(-color-penalty, -35%);
+}
+
+/* Wurf-Tabelle: dezente Rundennummern über der Trefferfolge beider Teams */
+.game-shootout-number {
+    -fx-text-fill: -color-status;
+    -fx-opacity: 0.55;
+    -fx-font-size: 0.9em;
+}
+
+.game-shootout-team {
+    -fx-text-fill: -color-status;
+    -fx-font-size: 1.08em;
+}
+
+.game-shootout-symbol {
+    -fx-text-fill: -color-team-name;
+    -fx-font-size: 1.23em;
+    -fx-font-weight: bold;
+}
+
 .goal-button {
     -fx-font-size: 1.54em;
 }

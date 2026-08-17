@@ -65,13 +65,27 @@ public class Shootout {
                 && attemptCount(TeamSide.GUEST) >= THROWERS_PER_TEAM;
     }
 
+    /** Würfe eines Teams in Wurfreihenfolge. */
+    public java.util.List<Attempt> attemptsFor(TeamSide side) {
+        return attempts.stream().filter(attempt -> attempt.side() == side).toList();
+    }
+
     /** Trefferfolge eines Teams als Symbole: ● Tor, ○ Fehlwurf. */
     public String symbols(TeamSide side) {
-        StringBuilder text = new StringBuilder();
-        for (Attempt attempt : attempts) {
-            if (attempt.side() == side) {
-                text.append(text.isEmpty() ? "" : " ").append(attempt.goal() ? "●" : "○");
-            }
+        return symbols(side, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Trefferfolge, begrenzt auf die letzten {@code maxAttempts} Würfe: Passt
+     * nicht alles auf die Anzeige, verlassen die ältesten Würfe das Bild
+     * (Auslassung „…“) — die jüngsten bleiben immer sichtbar.
+     */
+    public String symbols(TeamSide side, int maxAttempts) {
+        java.util.List<Attempt> team = attemptsFor(side);
+        int first = Math.max(0, team.size() - maxAttempts);
+        StringBuilder text = new StringBuilder(first > 0 ? "…" : "");
+        for (Attempt attempt : team.subList(first, team.size())) {
+            text.append(text.isEmpty() ? "" : " ").append(attempt.goal() ? "●" : "○");
         }
         return text.toString();
     }

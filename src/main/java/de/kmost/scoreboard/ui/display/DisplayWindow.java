@@ -477,6 +477,9 @@ public class DisplayWindow {
         return cell;
     }
 
+    /** Sichtbare Würfe je Team; ältere verlassen die Anzeige per „…“ statt die jüngsten abzuschneiden. */
+    private static final int SHOOTOUT_VISIBLE_ATTEMPTS = 7;
+
     private static void bindShootoutLine(Label label, Shootout shootout, TeamSide side) {
         label.textProperty().unbind();
         if (shootout == null) {
@@ -484,7 +487,7 @@ public class DisplayWindow {
             return;
         }
         label.textProperty().bind(Bindings.createStringBinding(
-                () -> shootout.symbols(side), shootout.attempts()));
+                () -> shootout.symbols(side, SHOOTOUT_VISIBLE_ATTEMPTS), shootout.attempts()));
     }
 
     /**
