@@ -16,6 +16,7 @@ import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.TeamRepository;
 import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.ui.display.DisplayPreview;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.image.WritableImage;
@@ -47,6 +48,7 @@ public class ControlPreview extends Application {
         GameState state = new GameState(config);
         control.gameStateProperty().set(state);
         state.clock().start();
+        DisplayPreview.fastForwardToOvertime(state, config);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.GUEST);

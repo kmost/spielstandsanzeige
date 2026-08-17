@@ -22,10 +22,32 @@ class GameClockTest {
         time = new FakeNanoTime();
     }
 
+    private static final Duration OVERTIME = Duration.ofMinutes(5);
+    private static final long OVERTIME_MILLIS = OVERTIME.toMillis();
+
     private GameClock clock(GameMode mode) {
         GameConfig config = new GameConfig("Heim", "Gast", mode, PERIOD,
                 ClockDirection.UP, SportProfile.HANDBALL);
         return new GameClock(config, time);
+    }
+
+    private GameClock clock(GameMode mode, OvertimeFormat overtimeFormat) {
+        GameConfig config = new GameConfig("Heim", "Gast", mode, PERIOD,
+                ClockDirection.UP, overtimeFormat, OVERTIME, SportProfile.HANDBALL);
+        return new GameClock(config, time);
+    }
+
+    /** Spielt alle regulären Abschnitte durch, bis die Uhr auf FINISHED steht. */
+    private void playRegulation(GameClock clock, GameMode mode) {
+        clock.start();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        for (int period = 2; period <= mode.periodCount(); period++) {
+            clock.startNextPeriod();
+            time.advanceMillis(PERIOD_MILLIS);
+            clock.tick();
+        }
+        assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
     }
 
     @Test
@@ -229,6 +251,90 @@ class GameClockTest {
         assertEquals(GameClock.Phase.PAUSED, clock.phaseProperty().get());
         assertEquals(PERIOD_MILLIS - 30_000, clock.elapsedMillisProperty().get());
         assertEquals(1, clock.periodProperty().get());
+    }
+
+    @Test
+    void overtimeAsSinglePeriodRunsAndFinishes() {
+        GameClock clock = clock(GameMode.TWO_HALVES, OvertimeFormat.SINGLE_PERIOD);
+        AtomicInteger hornCount = new AtomicInteger();
+        clock.setOnPeriodEnd(hornCount::incrementAndGet);
+        playRegulation(clock, GameMode.TWO_HALVES);
+        clock.startOvertime();
+        assertEquals(3, clock.periodProperty().get());
+        assertEquals(GameClock.Phase.RUNNING, clock.phaseProperty().get());
+        assertEquals(2 * PERIOD_MILLIS + OVERTIME_MILLIS, clock.currentPeriodEndMillis());
+        time.advanceMillis(OVERTIME_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
+        assertEquals(2 * PERIOD_MILLIS + OVERTIME_MILLIS, clock.elapsedMillisProperty().get());
+        assertEquals(3, hornCount.get());
+    }
+
+    @Test
+    void overtimeInTwoHalvesPausesBetweenHalves() {
+        GameClock clock = clock(GameMode.TWO_HALVES, OvertimeFormat.TWO_HALVES);
+        playRegulation(clock, GameMode.TWO_HALVES);
+        clock.startOvertime();
+        time.advanceMillis(OVERTIME_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.HALF_TIME, clock.phaseProperty().get());
+        clock.startNextPeriod();
+        assertEquals(4, clock.periodProperty().get());
+        time.advanceMillis(OVERTIME_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
+        assertEquals(2 * PERIOD_MILLIS + 2 * OVERTIME_MILLIS, clock.elapsedMillisProperty().get());
+    }
+
+    @Test
+    void secondOvertimeContinuesAfterFirst() {
+        GameClock clock = clock(GameMode.TWO_HALVES, OvertimeFormat.TWO_HALVES);
+        playRegulation(clock, GameMode.TWO_HALVES);
+        clock.startOvertime();
+        time.advanceMillis(OVERTIME_MILLIS);
+        clock.tick();
+        clock.startNextPeriod();
+        time.advanceMillis(OVERTIME_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
+        clock.startOvertime();
+        assertEquals(5, clock.periodProperty().get());
+        assertEquals(GameClock.Phase.RUNNING, clock.phaseProperty().get());
+        time.advanceMillis(OVERTIME_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.HALF_TIME, clock.phaseProperty().get());
+        assertEquals(2 * PERIOD_MILLIS + 3 * OVERTIME_MILLIS, clock.elapsedMillisProperty().get());
+    }
+
+    @Test
+    void startOvertimeIgnoredWhileRunningAndAfterAbort() {
+        GameClock clock = clock(GameMode.TWO_HALVES, OvertimeFormat.TWO_HALVES);
+        clock.start();
+        time.advanceMillis(10_000);
+        clock.tick();
+        clock.startOvertime();
+        assertEquals(1, clock.periodProperty().get());
+        assertEquals(GameClock.Phase.RUNNING, clock.phaseProperty().get());
+        // Spielabbruch: Uhr steht vor dem Abschnittsende — keine Verlängerung mehr möglich
+        clock.finish();
+        assertFalse(clock.canStartOvertime());
+        clock.startOvertime();
+        assertEquals(1, clock.periodProperty().get());
+        assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
+        assertFalse(clock.runningProperty().get());
+    }
+
+    @Test
+    void setElapsedIsClampedToOvertimeSegment() {
+        GameClock clock = clock(GameMode.TWO_HALVES, OvertimeFormat.SINGLE_PERIOD);
+        playRegulation(clock, GameMode.TWO_HALVES);
+        clock.startOvertime();
+        time.advanceMillis(10_000);
+        clock.tick();
+        clock.setElapsed(5_000);
+        assertEquals(2 * PERIOD_MILLIS, clock.elapsedMillisProperty().get());
+        clock.setElapsed(10 * PERIOD_MILLIS);
+        assertEquals(2 * PERIOD_MILLIS + OVERTIME_MILLIS, clock.elapsedMillisProperty().get());
     }
 
     @Test

@@ -8,10 +8,12 @@ import java.time.Duration;
  */
 public record SportProfile(String name,
                            Duration defaultPeriodDuration,
+                           Duration defaultOvertimePeriodDuration,
                            Duration penaltyDuration,
                            Duration teamTimeoutDuration,
                            int teamTimeoutsPerGame) {
 
     public static final SportProfile HANDBALL = new SportProfile(
-            "Handball", Duration.ofMinutes(30), Duration.ofMinutes(2), Duration.ofMinutes(1), 3);
+            "Handball", Duration.ofMinutes(30), Duration.ofMinutes(5),
+            Duration.ofMinutes(2), Duration.ofMinutes(1), 3);
 }

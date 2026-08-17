@@ -32,14 +32,18 @@ mvn javafx:run
 ## Bedienung
 
 1. In der Konsole Teamnamen (Dropdown mit Textfilter über alle bereits genutzten
-   Teams, freie Eingabe für neue), Modus (eine Spielzeit / zwei Halbzeiten),
-   Periodendauer und Uhrrichtung (vorwärts/rückwärts) einstellen, dann
-   **„Spiel anlegen“**. Teamnamen werden unter `~/.spielstandsanzeige/`
-   gespeichert und beim nächsten Spiel automatisch vorgeschlagen.
+   Teams, freie Eingabe für neue), Modus (eine Spielzeit / zwei Halbzeiten /
+   drei Drittel), Periodendauer, Uhrrichtung (vorwärts/rückwärts) und das
+   Verlängerungs-Format (eine Spielzeit oder zwei Halbzeiten, Dauer je
+   Abschnitt) einstellen, dann **„Spiel anlegen“**. Teamnamen werden unter
+   `~/.spielstandsanzeige/` gespeichert und beim nächsten Spiel automatisch
+   vorgeschlagen.
 2. Zielbildschirm wählen und **„Anzeige öffnen“** (auf einem zweiten Bildschirm
    automatisch im Vollbild; **„Vollbild umschalten“** bzw. ESC am Anzeigefenster).
 3. **Start / Pause / Fortsetzen** steuert die Uhr; bei Halbzeit- und Spielende stoppt
    sie automatisch und die Hupe ertönt. Die 2. Halbzeit wird manuell gestartet.
+   Nach regulärem Spielende bietet derselbe Knopf **„Verlängerung starten“** an —
+   beliebig oft, die Uhr zählt kumulativ weiter (z. B. 60:00 → 70:00).
    **„Zeit stellen…“** korrigiert die Spielzeit manuell (Eingabe im Anzeigeformat
    der Uhr, begrenzt auf die aktuelle Periode) — auch aus der Halbzeitpause
    heraus, falls die Uhr zu spät gestoppt wurde.

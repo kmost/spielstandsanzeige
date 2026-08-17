@@ -36,7 +36,10 @@ nötig.
 2. Tragen Sie die beiden Teamnamen ein (bereits verwendete Namen werden beim
    Tippen vorgeschlagen) und prüfen Sie Spielmodus und Periodendauer. Bei
    **„Uhr“** wählen Sie, ob die Spieluhr **vorwärts** (0:00 → Ende) oder
-   **rückwärts** (Ende → 0:00) läuft.
+   **rückwärts** (Ende → 0:00) läuft. Unter **„Verlängerung (falls nötig)“**
+   ist voreingestellt, wie eine eventuelle Verlängerung gespielt würde
+   (Standard: zwei Halbzeiten à 5 Minuten) — das muss Sie nur kümmern, wenn
+   ein Unentschieden entschieden werden muss.
 3. Klicken Sie auf **„Spiel anlegen“**.
 
 ## 4. Anzeige auf den zweiten Bildschirm bringen
@@ -65,6 +68,11 @@ nötig.
   Zeile im Kampfgericht ab.
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder
   gestoppt wurde.
+- Steht es nach dem regulären Spielende unentschieden und muss ein Sieger
+  ermittelt werden: Klicken Sie beim Wiederanpfiff auf **„▶ 1. Verlängerung
+  starten“** — die Uhr läuft dann einfach weiter (z. B. 60:00 → 70:00), die
+  Anzeige zeigt „1. Verlängerung“. Bei erneutem Gleichstand ist danach eine
+  **2. Verlängerung** möglich, und so weiter.
 - **„📢 Hupe“** löst die Hupe von Hand aus, z. B. zur Ankündigung des
   Wiederanpfiffs.
 - **„⏹ Spiel abbrechen“** beendet das Spiel vorzeitig — die Uhr stoppt nach

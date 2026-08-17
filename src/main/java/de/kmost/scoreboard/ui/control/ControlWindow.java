@@ -3,6 +3,7 @@ package de.kmost.scoreboard.ui.control;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -11,6 +12,7 @@ import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameConfig;
 import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
+import de.kmost.scoreboard.model.OvertimeFormat;
 import de.kmost.scoreboard.model.PenaltyTimer;
 import de.kmost.scoreboard.model.SportProfile;
 import de.kmost.scoreboard.model.TeamSide;
@@ -79,6 +81,9 @@ public class ControlWindow {
     private final Spinner<Integer> minutesSpinner =
             new Spinner<>(1, 120, (int) SportProfile.HANDBALL.defaultPeriodDuration().toMinutes());
     private final ComboBox<ClockDirection> directionBox = new ComboBox<>();
+    private final ComboBox<OvertimeFormat> overtimeFormatBox = new ComboBox<>();
+    private final Spinner<Integer> overtimeMinutesSpinner = new Spinner<>(1, 60,
+            (int) SportProfile.HANDBALL.defaultOvertimePeriodDuration().toMinutes());
     private final ComboBox<Screen> screenBox = new ComboBox<>();
     /** Konfiguriertes Standard-Heimteam; steht beim Setup im Heim-Feld vorbelegt. */
     private String defaultHomeTeam;
@@ -150,12 +155,16 @@ public class ControlWindow {
         modeBox.setValue(GameMode.TWO_HALVES);
         directionBox.getItems().setAll(ClockDirection.values());
         directionBox.setValue(ClockDirection.UP);
-        minutesSpinner.setEditable(true);
-        minutesSpinner.focusedProperty().addListener((obs, was, is) -> {
-            if (!is) {
-                minutesSpinner.increment(0); // eingetippten Wert übernehmen
-            }
-        });
+        overtimeFormatBox.getItems().setAll(OvertimeFormat.values());
+        overtimeFormatBox.setValue(OvertimeFormat.TWO_HALVES);
+        for (Spinner<Integer> spinner : List.of(minutesSpinner, overtimeMinutesSpinner)) {
+            spinner.setEditable(true);
+            spinner.focusedProperty().addListener((obs, was, is) -> {
+                if (!is) {
+                    spinner.increment(0); // eingetippten Wert übernehmen
+                }
+            });
+        }
 
         // Heim und Gast als gleich breite Karten nebeneinander — wie die Spielhälften
         HBox teamCards = new HBox(12, buildTeamCard(TeamSide.HOME), buildTeamCard(TeamSide.GUEST));
@@ -166,14 +175,22 @@ public class ControlWindow {
         createButton.setOnAction(e -> createGame());
 
         minutesSpinner.setPrefWidth(80);
-        Region paramsSpacer = new Region();
-        HBox.setHgrow(paramsSpacer, Priority.ALWAYS);
         HBox paramsRow = new HBox(10,
                 new Label("Modus:"), modeBox,
                 new Label("Periodendauer (min):"), minutesSpinner,
-                new Label("Uhr:"), directionBox,
-                paramsSpacer, createButton);
+                new Label("Uhr:"), directionBox);
         paramsRow.setAlignment(Pos.CENTER_LEFT);
+
+        // Verlängerungs-Voreinstellung; genutzt wird sie nur, wenn das Kampfgericht
+        // nach Spielende tatsächlich „Verlängerung starten“ drückt
+        overtimeMinutesSpinner.setPrefWidth(70);
+        Region overtimeSpacer = new Region();
+        HBox.setHgrow(overtimeSpacer, Priority.ALWAYS);
+        HBox overtimeRow = new HBox(10,
+                new Label("Verlängerung (falls nötig):"), overtimeFormatBox,
+                new Label("à"), overtimeMinutesSpinner, new Label("min"),
+                overtimeSpacer, createButton);
+        overtimeRow.setAlignment(Pos.CENTER_LEFT);
 
         screenBox.setItems(Screen.getScreens());
         screenBox.setButtonCell(screenCell());
@@ -201,7 +218,7 @@ public class ControlWindow {
                 fullScreenButton, configButton);
         displayRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox content = new VBox(12, teamCards, paramsRow, new Separator(), displayRow);
+        VBox content = new VBox(12, teamCards, paramsRow, overtimeRow, new Separator(), displayRow);
         content.setPadding(new Insets(10));
 
         TitledPane pane = new TitledPane("Spiel-Einstellungen", content);
@@ -285,6 +302,8 @@ public class ControlWindow {
                 modeBox.getValue(),
                 Duration.ofMinutes(minutesSpinner.getValue()),
                 directionBox.getValue(),
+                overtimeFormatBox.getValue(),
+                Duration.ofMinutes(overtimeMinutesSpinner.getValue()),
                 SportProfile.HANDBALL);
         GameState state = new GameState(config);
         state.clock().setOnPeriodEnd(horn::play);
@@ -327,6 +346,9 @@ public class ControlWindow {
         // die 100%-Zeilen lassen die Zellen ihre komplette Raster-Zone füllen —
         // die Kinder verteilen sich per eigener Ausrichtung darin
         GridPane topRow = new GridPane();
+        // wie beim äußeren Raster: überbreite Inhalte werden eingepasst statt
+        // die Mindestbreite der Zeile (und damit des Fensters) aufzuweiten
+        topRow.setMinWidth(0);
         topRow.getColumnConstraints().addAll(
                 percentColumn(25), percentColumn(50), percentColumn(25));
         topRow.getRowConstraints().add(percentRow(100));
@@ -335,12 +357,14 @@ public class ControlWindow {
         topRow.add(buildCornerColumn(state, TeamSide.GUEST), 2, 0);
 
         GridPane scoreRow = new GridPane();
+        scoreRow.setMinWidth(0);
         scoreRow.getColumnConstraints().addAll(percentColumn(50), percentColumn(50));
         scoreRow.getRowConstraints().add(percentRow(100));
         scoreRow.add(buildScoreCell(state, TeamSide.HOME), 0, 0);
         scoreRow.add(buildScoreCell(state, TeamSide.GUEST), 1, 0);
 
         GridPane nameRow = new GridPane();
+        nameRow.setMinWidth(0);
         nameRow.getColumnConstraints().addAll(percentColumn(50), percentColumn(50));
         nameRow.getRowConstraints().add(percentRow(100));
         nameRow.add(buildTeamControls(state, TeamSide.HOME), 0, 0);
@@ -352,6 +376,9 @@ public class ControlWindow {
         pane.getStyleClass().add("game-pane");
         pane.setPadding(new Insets(15));
         pane.setMinHeight(0);
+        // Mindestbreiten überbreiter Zeilen (z. B. „1. Halbzeit der Verlängerung
+        // starten“) nicht nach außen tragen: eingepasst wird per fitToCellWidth
+        pane.setMinWidth(0);
         pane.getColumnConstraints().add(percentColumn(100));
         pane.getRowConstraints().addAll(percentRow(45), percentRow(30), percentRow(25));
         pane.add(topRow, 0, 0);
@@ -467,15 +494,24 @@ public class ControlWindow {
             }
         });
 
+        // ein Knopf für den jeweils nächsten Abschnitt: in der Pause die nächste
+        // Halbzeit bzw. das nächste Drittel, nach regulärem Spielende die Verlängerung
         Button nextPeriodButton = new Button();
         nextPeriodButton.textProperty().bind(Bindings.createStringBinding(
-                () -> "⏭ " + (clock.periodProperty().get() + 1) + ". "
-                        + state.config().mode().periodName() + " starten",
-                clock.periodProperty()));
+                () -> nextSegmentText(state),
+                clock.phaseProperty(), clock.periodProperty()));
         nextPeriodButton.getStyleClass().add("big-button");
-        nextPeriodButton.disableProperty().bind(
-                clock.phaseProperty().isNotEqualTo(GameClock.Phase.HALF_TIME));
-        nextPeriodButton.setOnAction(e -> clock.startNextPeriod());
+        nextPeriodButton.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> clock.phaseProperty().get() != GameClock.Phase.HALF_TIME
+                        && !clock.canStartOvertime(),
+                clock.phaseProperty(), clock.elapsedMillisProperty()));
+        nextPeriodButton.setOnAction(e -> {
+            if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
+                clock.startNextPeriod();
+            } else {
+                clock.startOvertime();
+            }
+        });
 
         Button setTimeButton = new Button("🕑 Zeit stellen…");
         setTimeButton.getStyleClass().add("big-button");
@@ -516,13 +552,17 @@ public class ControlWindow {
                 clock.elapsedMillisProperty().get(), clock.currentPeriodEndMillis(),
                 state.config().direction()));
         dialog.setTitle("Spielzeit stellen");
-        long periodStart = (long) (clock.periodProperty().get() - 1)
-                * state.config().periodMillis();
+        int period = clock.periodProperty().get();
+        String segment = state.config().isOvertimePeriod(period)
+                ? overtimeLabel(state.config(), period)
+                : state.config().mode().periodName() + " " + period;
+        boolean showSegment = state.config().mode().periodCount() > 1
+                || state.config().isOvertimePeriod(period);
         dialog.setHeaderText(countUp
-                ? "Gespielte Zeit (MM:SS)" + (state.config().mode().periodCount() > 1
-                        ? " — " + state.config().mode().periodName() + " "
-                                + clock.periodProperty().get() + " läuft ab "
-                                + TimeFormatter.formatClock(periodStart, 0, ClockDirection.UP)
+                ? "Gespielte Zeit (MM:SS)" + (showSegment
+                        ? " — " + segment + " läuft ab "
+                                + TimeFormatter.formatClock(clock.currentPeriodStartMillis(), 0,
+                                        ClockDirection.UP)
                         : "")
                 : "Restzeit der aktuellen Periode (MM:SS)");
         dialog.setContentText("Zeit:");
@@ -687,16 +727,43 @@ public class ControlWindow {
 
     private static String phaseText(GameState state) {
         GameClock clock = state.clock();
-        GameMode mode = state.config().mode();
-        boolean multiPeriod = mode.periodCount() > 1;
+        GameConfig config = state.config();
+        GameMode mode = config.mode();
+        int period = clock.periodProperty().get();
         return switch (clock.phaseProperty().get()) {
             case NOT_STARTED -> "Bereit";
-            case RUNNING -> multiPeriod
-                    ? clock.periodProperty().get() + ". " + mode.periodName() + " läuft"
-                    : "Spielzeit läuft";
+            case RUNNING -> config.isOvertimePeriod(period)
+                    ? overtimeLabel(config, period) + " läuft"
+                    : mode.periodCount() > 1
+                            ? period + ". " + mode.periodName() + " läuft"
+                            : "Spielzeit läuft";
             case PAUSED -> "Pausiert";
-            case HALF_TIME -> mode.breakName();
+            case HALF_TIME -> config.isOvertimePeriod(period)
+                    ? "Verlängerungspause" : mode.breakName();
             case FINISHED -> "Spielende";
         };
+    }
+
+    /** Beschriftung des nächsten-Abschnitt-Knopfs passend zur aktuellen Spielsituation. */
+    private static String nextSegmentText(GameState state) {
+        GameClock clock = state.clock();
+        GameConfig config = state.config();
+        if (clock.phaseProperty().get() == GameClock.Phase.FINISHED) {
+            return "▶ " + config.overtimeNumber(clock.periodProperty().get() + 1)
+                    + ". Verlängerung starten";
+        }
+        int next = clock.periodProperty().get() + 1;
+        if (config.isOvertimePeriod(next)) {
+            return "⏭ " + config.overtimeHalf(next) + ". Halbzeit der Verlängerung starten";
+        }
+        return "⏭ " + next + ". " + config.mode().periodName() + " starten";
+    }
+
+    /** Name eines Verlängerungs-Abschnitts, z. B. „1. Verlängerung – 2. Halbzeit“. */
+    private static String overtimeLabel(GameConfig config, int period) {
+        String name = config.overtimeNumber(period) + ". Verlängerung";
+        return config.overtimeFormat().periodCount() > 1
+                ? name + " – " + config.overtimeHalf(period) + ". Halbzeit"
+                : name;
     }
 }

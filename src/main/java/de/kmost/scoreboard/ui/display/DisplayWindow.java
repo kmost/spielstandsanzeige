@@ -263,8 +263,20 @@ public class DisplayWindow {
         bindFontSize(periodLabel, PHASE_EM, statusScale);
         periodLabel.textProperty().bind(Bindings.createStringBinding(
                 () -> periodText(state), clock.phaseProperty(), clock.periodProperty()));
+        // in der Verlängerung ist der Text zweizeilig und breiter als „1. HZ“ —
+        // nie mit „…“ kürzen, sondern wie die Strafen-Chips in die Spalte einpassen
+        periodLabel.setTextAlignment(TextAlignment.CENTER);
+        periodLabel.setMinWidth(Region.USE_PREF_SIZE);
         HBox periodBox = new HBox(periodLabel);
         periodBox.setAlignment(Pos.CENTER);
+        periodBox.setMinWidth(0);
+        Scale periodFit = new Scale(1, 1);
+        periodFit.pivotXProperty().bind(periodBox.widthProperty().divide(2));
+        periodFit.pivotYProperty().bind(periodBox.heightProperty().divide(2));
+        periodBox.getTransforms().add(periodFit);
+        InvalidationListener refitPeriod = obs -> fitToWidth(periodBox, periodFit);
+        periodBox.widthProperty().addListener(refitPeriod);
+        periodLabel.layoutBoundsProperty().addListener(refitPeriod);
 
         GridPane scoreRow = new GridPane();
         scoreRow.getColumnConstraints().addAll(
@@ -544,14 +556,22 @@ public class DisplayWindow {
                 timeout.remainingMillisProperty()));
     }
 
-    /** Kurzform zwischen den Toranzeigen: „1. HZ“, „Pause“, „Ende“. */
+    /** Kurzform zwischen den Toranzeigen: „1. HZ“, „Pause“, „Ende“ — in der
+     *  Verlängerung zweizeilig, z. B. „1. Verlängerung“ über „2. HZ“. */
     private static String periodText(GameState state) {
         GameClock clock = state.clock();
         GameMode mode = state.config().mode();
+        int period = clock.periodProperty().get();
         return switch (clock.phaseProperty().get()) {
-            case NOT_STARTED, RUNNING, PAUSED -> mode.periodCount() > 1
-                    ? clock.periodProperty().get() + ". " + mode.periodAbbreviation()
-                    : "";
+            case NOT_STARTED, RUNNING, PAUSED -> {
+                if (state.config().isOvertimePeriod(period)) {
+                    String name = state.config().overtimeNumber(period) + ". Verlängerung";
+                    yield state.config().overtimeFormat().periodCount() > 1
+                            ? name + "\n" + state.config().overtimeHalf(period) + ". HZ"
+                            : name;
+                }
+                yield mode.periodCount() > 1 ? period + ". " + mode.periodAbbreviation() : "";
+            }
             case HALF_TIME -> "Pause";
             case FINISHED -> "Ende";
         };

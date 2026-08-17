@@ -7,6 +7,7 @@ import java.time.Duration;
 import javax.imageio.ImageIO;
 
 import de.kmost.scoreboard.model.ClockDirection;
+import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameConfig;
 import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
@@ -69,6 +70,7 @@ public class DisplayPreview extends Application {
         }
         prop.set(state);
         state.clock().start();
+        fastForwardToOvertime(state, config);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.GUEST);
@@ -104,6 +106,27 @@ public class DisplayPreview extends Application {
         ImageIO.write(buffered, "png", out);
         System.out.println("Vorschau gespeichert: " + out.getAbsolutePath());
         Platform.exit();
+    }
+
+    /** -Dpreview.overtime=true: Spiel in die 2. Halbzeit der 1. Verlängerung vorspulen. */
+    public static void fastForwardToOvertime(GameState state, GameConfig config) {
+        if (!Boolean.getBoolean("preview.overtime")) {
+            return;
+        }
+        GameClock clock = state.clock();
+        for (int period = 1; period <= config.mode().periodCount(); period++) {
+            clock.setElapsed((long) period * config.periodMillis());
+            clock.tick();
+            if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
+                clock.startNextPeriod();
+            }
+        }
+        clock.startOvertime();
+        if (config.overtimeFormat().periodCount() > 1) {
+            clock.setElapsed(clock.currentPeriodEndMillis());
+            clock.tick();
+            clock.startNextPeriod();
+        }
     }
 
     private static File sampleLogo(int argb) throws Exception {

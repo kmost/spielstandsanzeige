@@ -26,6 +26,8 @@ public class GameClock {
     private long accumulatedMillis;
     private long startNanos;
     private Runnable onPeriodEnd;
+    /** Anzahl der gestarteten Verlängerungen; jede verlängert den Spielplan um ihre Abschnitte. */
+    private int overtimes;
 
     private final ReadOnlyLongWrapper elapsedMillis = new ReadOnlyLongWrapper(0);
     private final ReadOnlyIntegerWrapper period = new ReadOnlyIntegerWrapper(1);
@@ -72,6 +74,30 @@ public class GameClock {
         phase.set(Phase.RUNNING);
     }
 
+    /**
+     * Startet die nächste Verlängerung: Die erste Halbzeit der Verlängerung läuft sofort los
+     * (Klick = Anpfiff, wie bei {@link #startNextPeriod()}). Nur nach regulärem Spielende bzw.
+     * nach dem Ende einer Verlängerung erlaubt — nach einem Spielabbruch (Uhr steht vor dem
+     * Abschnittsende) bleibt das Spiel beendet.
+     */
+    public void startOvertime() {
+        if (!canStartOvertime()) {
+            return;
+        }
+        overtimes++;
+        period.set(period.get() + 1);
+        accumulatedMillis = elapsedMillis.get();
+        startNanos = nanoSource.getAsLong();
+        running.set(true);
+        phase.set(Phase.RUNNING);
+    }
+
+    /** Eine Verlängerung ist möglich, wenn das Spiel sein Abschnittsende regulär erreicht hat. */
+    public boolean canStartOvertime() {
+        return phase.get() == Phase.FINISHED
+                && elapsedMillis.get() == currentPeriodEndMillis();
+    }
+
     /** Beendet das Spiel sofort (Spielabbruch): Die Uhr stoppt endgültig bei der aktuellen Zeit. */
     public void finish() {
         if (phase.get() == Phase.FINISHED) {
@@ -96,8 +122,7 @@ public class GameClock {
         if (phase.get() == Phase.FINISHED) {
             return;
         }
-        long periodStart = (long) (period.get() - 1) * config.periodMillis();
-        long clamped = Math.clamp(millis, periodStart, currentPeriodEndMillis());
+        long clamped = Math.clamp(millis, currentPeriodStartMillis(), currentPeriodEndMillis());
         accumulatedMillis = clamped;
         startNanos = nanoSource.getAsLong();
         elapsedMillis.set(clamped);
@@ -115,7 +140,7 @@ public class GameClock {
         if (elapsed >= periodEnd) {
             accumulatedMillis = periodEnd;
             running.set(false);
-            phase.set(period.get() >= config.mode().periodCount() ? Phase.FINISHED : Phase.HALF_TIME);
+            phase.set(period.get() >= scheduledPeriodCount() ? Phase.FINISHED : Phase.HALF_TIME);
             elapsedMillis.set(periodEnd);
             if (onPeriodEnd != null) {
                 onPeriodEnd.run();
@@ -129,8 +154,27 @@ public class GameClock {
         return accumulatedMillis + (nanoSource.getAsLong() - startNanos) / 1_000_000;
     }
 
+    /** Alle bisher angesetzten Abschnitte: reguläre Perioden plus die der Verlängerungen. */
+    private int scheduledPeriodCount() {
+        return config.regulationPeriodCount() + overtimes * config.overtimeFormat().periodCount();
+    }
+
+    public long currentPeriodStartMillis() {
+        return periodStartMillis(period.get());
+    }
+
     public long currentPeriodEndMillis() {
-        return (long) period.get() * config.periodMillis();
+        return periodStartMillis(period.get())
+                + (config.isOvertimePeriod(period.get()) ? config.overtimeMillis() : config.periodMillis());
+    }
+
+    private long periodStartMillis(int period) {
+        int regular = config.regulationPeriodCount();
+        if (period <= regular) {
+            return (long) (period - 1) * config.periodMillis();
+        }
+        return (long) regular * config.periodMillis()
+                + (long) (period - regular - 1) * config.overtimeMillis();
     }
 
     public void setOnPeriodEnd(Runnable onPeriodEnd) {
