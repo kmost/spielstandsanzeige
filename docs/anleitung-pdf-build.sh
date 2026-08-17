@@ -14,8 +14,11 @@ DOCS=$(cd "$(dirname "$0")" && pwd)
 OUT=${1:-"$DOCS/../target/Spielstandsanzeige-Anleitung.pdf"}
 
 mkdir -p "$(dirname "$OUT")"
+# --embed-resources: Bilder als Daten-URIs einbetten — ohne das findet
+# WeasyPrint sie je nach pandoc-Version nicht (Zwischen-HTML liegt im Temp-Ordner).
 pandoc "$DOCS/anleitung.md" \
   --standalone \
+  --embed-resources \
   --pdf-engine=weasyprint \
   --css "$DOCS/anleitung-pdf.css" \
   --resource-path="$DOCS" \
