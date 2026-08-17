@@ -49,6 +49,7 @@ public class ControlPreview extends Application {
         control.gameStateProperty().set(state);
         state.clock().start();
         DisplayPreview.fastForwardToOvertime(state, config);
+        DisplayPreview.fastForwardToShootout(state, config);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.GUEST);

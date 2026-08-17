@@ -13,4 +13,8 @@ public enum TeamSide {
     public String label() {
         return label;
     }
+
+    public TeamSide opposite() {
+        return this == HOME ? GUEST : HOME;
+    }
 }

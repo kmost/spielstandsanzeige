@@ -73,6 +73,15 @@ nötig.
   starten“** — die Uhr läuft dann einfach weiter (z. B. 60:00 → 70:00), die
   Anzeige zeigt „1. Verlängerung“. Bei erneutem Gleichstand ist danach eine
   **2. Verlängerung** möglich, und so weiter.
+- Soll stattdessen (oder nach den Verlängerungen) ein **7-m-Werfen**
+  entscheiden: **„🥅 7-m-Werfen…“** klicken und das beginnende Team wählen.
+  Danach zeigt das Programm an, wer wirft — Sie melden nur noch **„Tor“**
+  oder **„Kein Tor“**. Den Wechsel der Schützen, das vorzeitige Ende bei
+  uneinholbarem Vorsprung, das Sudden Death nach 5 Schützen je Team und die
+  Siegermeldung übernimmt das Programm. Jeder Treffer zählt aufs
+  Endergebnis; die Anzeige zeigt die Trefferfolge unter den Teamnamen
+  (● Tor, ○ Fehlwurf). Eine Fehleingabe machen Sie mit **„↩ Wurf
+  zurücknehmen“** rückgängig.
 - **„📢 Hupe“** löst die Hupe von Hand aus, z. B. zur Ankündigung des
   Wiederanpfiffs.
 - **„⏹ Spiel abbrechen“** beendet das Spiel vorzeitig — die Uhr stoppt nach

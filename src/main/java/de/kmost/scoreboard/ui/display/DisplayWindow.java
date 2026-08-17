@@ -9,6 +9,7 @@ import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
 import de.kmost.scoreboard.model.PenaltyTimer;
+import de.kmost.scoreboard.model.Shootout;
 import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.model.TeamTimeout;
 import de.kmost.scoreboard.ui.AppIcon;
@@ -261,8 +262,18 @@ public class DisplayWindow {
         Label periodLabel = new Label();
         periodLabel.getStyleClass().add("phase");
         bindFontSize(periodLabel, PHASE_EM, statusScale);
-        periodLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> periodText(state), clock.phaseProperty(), clock.periodProperty()));
+        // per Listener statt Binding aktualisiert, weil der Text auch vom Sieger
+        // eines erst später gestarteten 7-m-Werfens abhängt
+        Runnable updatePeriod = () -> periodLabel.setText(periodText(state));
+        clock.phaseProperty().addListener(obs -> updatePeriod.run());
+        clock.periodProperty().addListener(obs -> updatePeriod.run());
+        state.shootoutProperty().addListener((obs, oldShootout, shootout) -> {
+            if (shootout != null) {
+                shootout.winnerProperty().addListener(o -> updatePeriod.run());
+            }
+            updatePeriod.run();
+        });
+        updatePeriod.run();
         // in der Verlängerung ist der Text zweizeilig und breiter als „1. HZ“ —
         // nie mit „…“ kürzen, sondern wie die Strafen-Chips in die Spalte einpassen
         periodLabel.setTextAlignment(TextAlignment.CENTER);
@@ -451,9 +462,29 @@ public class DisplayWindow {
                         state.config().profile().teamTimeoutsPerGame()),
                 state.timeoutsUsedProperty(side)));
 
-        VBox cell = new VBox(4, nameLabel, timeoutDots);
+        // Trefferfolge des 7-m-Werfens (● Tor, ○ Fehlwurf); erscheint erst mit dem ersten Wurf
+        Label shootoutLine = new Label();
+        shootoutLine.getStyleClass().add("shootout-attempts");
+        bindFontSize(shootoutLine, PENALTY_EM, statusScale);
+        shootoutLine.managedProperty().bind(shootoutLine.visibleProperty());
+        shootoutLine.visibleProperty().bind(shootoutLine.textProperty().isNotEmpty());
+        state.shootoutProperty().addListener((obs, oldShootout, shootout) ->
+                bindShootoutLine(shootoutLine, shootout, side));
+        bindShootoutLine(shootoutLine, state.shootoutProperty().get(), side);
+
+        VBox cell = new VBox(4, nameLabel, timeoutDots, shootoutLine);
         cell.setAlignment(Pos.TOP_CENTER);
         return cell;
+    }
+
+    private static void bindShootoutLine(Label label, Shootout shootout, TeamSide side) {
+        label.textProperty().unbind();
+        if (shootout == null) {
+            label.setText("");
+            return;
+        }
+        label.textProperty().bind(Bindings.createStringBinding(
+                () -> shootout.symbols(side), shootout.attempts()));
     }
 
     /**
@@ -573,7 +604,11 @@ public class DisplayWindow {
                 yield mode.periodCount() > 1 ? period + ". " + mode.periodAbbreviation() : "";
             }
             case HALF_TIME -> "Pause";
-            case FINISHED -> "Ende";
+            case FINISHED -> {
+                Shootout shootout = state.shootoutProperty().get();
+                yield shootout != null && shootout.winnerProperty().get() == null
+                        ? "7-m-Werfen" : "Ende";
+            }
         };
     }
 }

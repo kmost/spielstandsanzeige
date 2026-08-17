@@ -93,7 +93,7 @@ gewichtet und auf 100 % normalisiert werden (`DisplayWindow.weightedRow`):
 |---|---|---|---|
 | 1 | Strafen Heim · Uhr + Timeout-Chip · Strafen Gast | 38 % | `FontScale.CLOCK` |
 | 2 | Tore Heim · Phase („1. HZ“/„Pause“/„Ende“; in der Verlängerung zweizeilig „1. Verlängerung“ + „2. HZ“, eingepasst statt gekürzt) · Tore Gast | 38 % | `FontScale.SCORE` |
-| 3 | Teamname + Timeout-Punkte je Seite | 24 % | `FontScale.TEAM_NAME` |
+| 3 | Teamname + Timeout-Punkte je Seite (beim 7-m-Werfen zusätzlich die Trefferfolge ● Tor / ○ Fehlwurf) | 24 % | `FontScale.TEAM_NAME` |
 
 Gewichtssumme = `0.38·Uhr + 0.38·Tore + 0.24·Namen`. Weil die Basis-Schrift
 durch dieselbe Summe geteilt wird, behält jedes Element sein Verhältnis zur

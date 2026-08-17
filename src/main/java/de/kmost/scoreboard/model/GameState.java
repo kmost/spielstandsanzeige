@@ -26,7 +26,9 @@ public class GameState {
     private final ObservableList<PenaltyTimer> homePenalties = FXCollections.observableArrayList();
     private final ObservableList<PenaltyTimer> guestPenalties = FXCollections.observableArrayList();
     private final ObjectProperty<TeamTimeout> activeTimeout = new SimpleObjectProperty<>();
+    private final ObjectProperty<Shootout> shootout = new SimpleObjectProperty<>();
     private Runnable onTimeoutEnd;
+    private Runnable onShootoutEnd;
 
     public GameState(GameConfig config) {
         this(config, System::nanoTime);
@@ -108,6 +110,55 @@ public class GameState {
     /** Beendet das laufende Team-Timeout vorzeitig (ohne Signal). */
     public void endTeamTimeout() {
         activeTimeout.set(null);
+    }
+
+    /** Das 7-m-Werfen; {@code null}, solange keines gestartet wurde. */
+    public ObjectProperty<Shootout> shootoutProperty() {
+        return shootout;
+    }
+
+    /**
+     * Startet das 7-m-Werfen mit dem gewählten Startteam — nur einmal und nur,
+     * wenn das Spiel sein Abschnittsende regulär erreicht hat (gleiche Bedingung
+     * wie für eine Verlängerung; nach Spielabbruch nicht möglich).
+     */
+    public void startShootout(TeamSide startingTeam) {
+        if (shootout.get() != null || !clock.canStartOvertime()) {
+            return;
+        }
+        shootout.set(new Shootout(startingTeam));
+    }
+
+    /** Verbucht den nächsten 7-m-Wurf; ein Tor zählt auf den Spielstand. */
+    public void recordShootoutAttempt(boolean goal) {
+        Shootout current = shootout.get();
+        if (current == null || current.winnerProperty().get() != null) {
+            return;
+        }
+        TeamSide thrower = current.nextThrowerProperty().get();
+        current.record(goal);
+        if (goal) {
+            addGoal(thrower);
+        }
+        if (current.winnerProperty().get() != null && onShootoutEnd != null) {
+            onShootoutEnd.run();
+        }
+    }
+
+    /** Nimmt den letzten 7-m-Wurf zurück; ein verbuchtes Tor wird wieder abgezogen. */
+    public void undoShootoutAttempt() {
+        Shootout current = shootout.get();
+        if (current == null) {
+            return;
+        }
+        Shootout.Attempt removed = current.undoLast();
+        if (removed != null && removed.goal()) {
+            removeGoal(removed.side());
+        }
+    }
+
+    public void setOnShootoutEnd(Runnable onShootoutEnd) {
+        this.onShootoutEnd = onShootoutEnd;
     }
 
     /** Bricht das Spiel sofort ab: Uhr stoppt endgültig, ein laufendes Timeout endet. */

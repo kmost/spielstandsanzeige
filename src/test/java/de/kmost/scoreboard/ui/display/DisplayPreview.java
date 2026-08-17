@@ -71,6 +71,7 @@ public class DisplayPreview extends Application {
         prop.set(state);
         state.clock().start();
         fastForwardToOvertime(state, config);
+        fastForwardToShootout(state, config);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.HOME);
         state.addGoal(TeamSide.GUEST);
@@ -113,6 +114,31 @@ public class DisplayPreview extends Application {
         if (!Boolean.getBoolean("preview.overtime")) {
             return;
         }
+        finishRegulation(state, config);
+        GameClock clock = state.clock();
+        clock.startOvertime();
+        if (config.overtimeFormat().periodCount() > 1) {
+            clock.setElapsed(clock.currentPeriodEndMillis());
+            clock.tick();
+            clock.startNextPeriod();
+        }
+    }
+
+    /** -Dpreview.shootout=true: Spiel beenden und ein laufendes 7-m-Werfen zeigen. */
+    public static void fastForwardToShootout(GameState state, GameConfig config) {
+        if (!Boolean.getBoolean("preview.shootout")) {
+            return;
+        }
+        finishRegulation(state, config);
+        state.startShootout(TeamSide.HOME);
+        state.recordShootoutAttempt(true);  // Heim ●
+        state.recordShootoutAttempt(false); // Gast ○
+        state.recordShootoutAttempt(true);  // Heim ●
+        state.recordShootoutAttempt(true);  // Gast ●
+        state.recordShootoutAttempt(false); // Heim ○
+    }
+
+    private static void finishRegulation(GameState state, GameConfig config) {
         GameClock clock = state.clock();
         for (int period = 1; period <= config.mode().periodCount(); period++) {
             clock.setElapsed((long) period * config.periodMillis());
@@ -120,12 +146,6 @@ public class DisplayPreview extends Application {
             if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
                 clock.startNextPeriod();
             }
-        }
-        clock.startOvertime();
-        if (config.overtimeFormat().periodCount() > 1) {
-            clock.setElapsed(clock.currentPeriodEndMillis());
-            clock.tick();
-            clock.startNextPeriod();
         }
     }
 

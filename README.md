@@ -43,7 +43,11 @@ mvn javafx:run
 3. **Start / Pause / Fortsetzen** steuert die Uhr; bei Halbzeit- und Spielende stoppt
    sie automatisch und die Hupe ertönt. Die 2. Halbzeit wird manuell gestartet.
    Nach regulärem Spielende bietet derselbe Knopf **„Verlängerung starten“** an —
-   beliebig oft, die Uhr zählt kumulativ weiter (z. B. 60:00 → 70:00).
+   beliebig oft, die Uhr zählt kumulativ weiter (z. B. 60:00 → 70:00). Muss danach
+   ein Sieger her, führt **„7-m-Werfen…“** durch das Werfen: Startteam wählen,
+   dann nur noch „Tor“/„Kein Tor“ — Reihenfolge, vorzeitiges Ende, Sudden Death
+   (die andere Mannschaft beginnt) und Siegermeldung übernimmt die App; Treffer
+   zählen aufs Endergebnis, Fehleingaben nimmt „Wurf zurücknehmen“ zurück.
    **„Zeit stellen…“** korrigiert die Spielzeit manuell (Eingabe im Anzeigeformat
    der Uhr, begrenzt auf die aktuelle Periode) — auch aus der Halbzeitpause
    heraus, falls die Uhr zu spät gestoppt wurde.

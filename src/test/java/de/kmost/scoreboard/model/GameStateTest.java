@@ -211,6 +211,66 @@ class GameStateTest {
         assertEquals(1, state.timeoutsUsedProperty(TeamSide.HOME).get());
     }
 
+    @Test
+    void shootoutGoalsCountTowardsScore() {
+        finishRegulation();
+        state.startShootout(TeamSide.HOME);
+        state.recordShootoutAttempt(true);  // Heim trifft
+        state.recordShootoutAttempt(false); // Gast verwirft
+        assertEquals(1, state.scoreProperty(TeamSide.HOME).get());
+        assertEquals(0, state.scoreProperty(TeamSide.GUEST).get());
+    }
+
+    @Test
+    void undoShootoutAttemptRemovesGoalFromScore() {
+        finishRegulation();
+        state.startShootout(TeamSide.HOME);
+        state.recordShootoutAttempt(true);
+        state.undoShootoutAttempt();
+        assertEquals(0, state.scoreProperty(TeamSide.HOME).get());
+        assertEquals(0, state.shootoutProperty().get().attempts().size());
+    }
+
+    @Test
+    void shootoutOnlyAfterRegularFinishAndOnlyOnce() {
+        state.clock().start();
+        state.startShootout(TeamSide.HOME);
+        assertNull(state.shootoutProperty().get());
+        // Spielabbruch: Uhr steht vor dem Abschnittsende — kein 7-m-Werfen möglich
+        state.abortGame();
+        state.startShootout(TeamSide.HOME);
+        assertNull(state.shootoutProperty().get());
+    }
+
+    @Test
+    void shootoutEndFiresSignal() {
+        AtomicInteger hornCount = new AtomicInteger();
+        state.setOnShootoutEnd(hornCount::incrementAndGet);
+        finishRegulation();
+        state.startShootout(TeamSide.HOME);
+        for (int i = 0; i < 3; i++) {
+            state.recordShootoutAttempt(true);  // Heim trifft
+            state.recordShootoutAttempt(false); // Gast verwirft
+        }
+        // 3:0 nach drei Paaren: entschieden, Hupe genau einmal
+        assertEquals(TeamSide.HOME, state.shootoutProperty().get().winnerProperty().get());
+        assertEquals(1, hornCount.get());
+        state.recordShootoutAttempt(true); // wird ignoriert
+        assertEquals(1, hornCount.get());
+        assertEquals(3, state.scoreProperty(TeamSide.HOME).get());
+    }
+
+    /** Spielt beide 1-min-Halbzeiten durch, bis die Uhr regulär auf FINISHED steht. */
+    private void finishRegulation() {
+        state.clock().start();
+        time.advanceMillis(60_000);
+        state.tick();
+        state.clock().startNextPeriod();
+        time.advanceMillis(60_000);
+        state.tick();
+        assertEquals(GameClock.Phase.FINISHED, state.clock().phaseProperty().get());
+    }
+
     private long penaltyRemaining(TeamSide side) {
         return state.penalties(side).get(0).remainingMillisProperty().get();
     }

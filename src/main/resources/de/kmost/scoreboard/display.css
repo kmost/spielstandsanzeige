@@ -61,6 +61,11 @@
     -fx-text-fill: -color-timeout;
 }
 
+.shootout-attempts {
+    -fx-text-fill: -color-team-name;
+    -fx-font-weight: bold;
+}
+
 /* Schriftgröße kommt nicht aus dem em-Raster des Spielstands, sondern wird in
    DisplayWindow direkt an die Höhe der Banner-Zone gebunden (skaliert mit dem
    konfigurierbaren Größenfaktor des Themes) */

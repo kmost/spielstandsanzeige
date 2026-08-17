@@ -14,6 +14,7 @@ import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
 import de.kmost.scoreboard.model.OvertimeFormat;
 import de.kmost.scoreboard.model.PenaltyTimer;
+import de.kmost.scoreboard.model.Shootout;
 import de.kmost.scoreboard.model.SportProfile;
 import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.model.TeamTimeout;
@@ -308,6 +309,7 @@ public class ControlWindow {
         GameState state = new GameState(config);
         state.clock().setOnPeriodEnd(horn::play);
         state.setOnTimeoutEnd(horn::play);
+        state.setOnShootoutEnd(horn::play);
         gameState.set(state);
     }
 
@@ -468,10 +470,20 @@ public class ControlWindow {
         clockLine.setAlignment(Pos.CENTER);
         fitToCellWidth(clockLine, HPos.LEFT);
 
+        // per Listener statt Binding aktualisiert, weil der Text auch vom Sieger
+        // eines erst später gestarteten 7-m-Werfens abhängt
         Label phaseLabel = new Label();
-        phaseLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> phaseText(state), clock.phaseProperty(), clock.periodProperty()));
         phaseLabel.getStyleClass().add("game-phase");
+        Runnable updatePhase = () -> phaseLabel.setText(phaseText(state));
+        clock.phaseProperty().addListener(obs -> updatePhase.run());
+        clock.periodProperty().addListener(obs -> updatePhase.run());
+        state.shootoutProperty().addListener((obs, oldShootout, shootout) -> {
+            if (shootout != null) {
+                shootout.winnerProperty().addListener(o -> updatePhase.run());
+            }
+            updatePhase.run();
+        });
+        updatePhase.run();
 
         Button startPauseButton = new Button();
         startPauseButton.setMinWidth(Region.USE_PREF_SIZE);
@@ -502,9 +514,10 @@ public class ControlWindow {
                 clock.phaseProperty(), clock.periodProperty()));
         nextPeriodButton.getStyleClass().add("big-button");
         nextPeriodButton.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> clock.phaseProperty().get() != GameClock.Phase.HALF_TIME
-                        && !clock.canStartOvertime(),
-                clock.phaseProperty(), clock.elapsedMillisProperty()));
+                () -> state.shootoutProperty().get() != null
+                        || (clock.phaseProperty().get() != GameClock.Phase.HALF_TIME
+                            && !clock.canStartOvertime()),
+                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty()));
         nextPeriodButton.setOnAction(e -> {
             if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
                 clock.startNextPeriod();
@@ -519,9 +532,19 @@ public class ControlWindow {
                 clock.phaseProperty().isEqualTo(GameClock.Phase.FINISHED));
         setTimeButton.setOnAction(e -> correctClock(state));
 
+        // 7-m-Werfen: wie die Verlängerung erst nach regulärem Spielende möglich
+        Button shootoutButton = new Button("🥅 7-m-Werfen…");
+        shootoutButton.getStyleClass().add("big-button");
+        shootoutButton.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> state.shootoutProperty().get() != null || !clock.canStartOvertime(),
+                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty()));
+        shootoutButton.setOnAction(e -> startShootout(state));
+
         nextPeriodButton.setMinWidth(Region.USE_PREF_SIZE);
         setTimeButton.setMinWidth(Region.USE_PREF_SIZE);
-        HBox clockButtons = new HBox(10, startPauseButton, nextPeriodButton, setTimeButton);
+        shootoutButton.setMinWidth(Region.USE_PREF_SIZE);
+        HBox clockButtons = new HBox(10, startPauseButton, nextPeriodButton, shootoutButton,
+                setTimeButton);
         clockButtons.setAlignment(Pos.CENTER);
         fitToCellWidth(clockButtons, HPos.LEFT);
 
@@ -532,7 +555,14 @@ public class ControlWindow {
                 rebuildTimeoutRow(state, timeoutBox));
         rebuildTimeoutRow(state, timeoutBox);
 
-        VBox clockBox = new VBox(6, clockLine, phaseLabel, clockButtons, timeoutBox);
+        VBox shootoutBox = new VBox(6);
+        shootoutBox.setAlignment(Pos.CENTER);
+        fitToCellWidth(shootoutBox, HPos.LEFT);
+        state.shootoutProperty().addListener((obs, oldShootout, shootout) ->
+                rebuildShootoutBox(state, shootoutBox));
+        rebuildShootoutBox(state, shootoutBox);
+
+        VBox clockBox = new VBox(6, clockLine, phaseLabel, clockButtons, timeoutBox, shootoutBox);
         // mittig in der Raster-Zeile (wie die Uhr auf der Anzeige), damit bei
         // großen Fenstern kein Loch zwischen Uhr-Gruppe und Tor-Zeile entsteht
         clockBox.setAlignment(Pos.CENTER);
@@ -576,6 +606,77 @@ public class ControlWindow {
                 alert.showAndWait();
             }
         });
+    }
+
+    /** Startteam abfragen (Münzwurf) und das 7-m-Werfen beginnen. */
+    private void startShootout(GameState state) {
+        ButtonType homeStarts = new ButtonType(state.config().teamName(TeamSide.HOME) + " beginnt");
+        ButtonType guestStarts = new ButtonType(state.config().teamName(TeamSide.GUEST) + " beginnt");
+        Alert dialog = new Alert(Alert.AlertType.CONFIRMATION,
+                "Welches Team wirft zuerst?", homeStarts, guestStarts, ButtonType.CANCEL);
+        dialog.setTitle("7-m-Werfen");
+        dialog.setHeaderText(null);
+        dialog.showAndWait().ifPresent(choice -> {
+            if (choice == homeStarts) {
+                state.startShootout(TeamSide.HOME);
+            } else if (choice == guestStarts) {
+                state.startShootout(TeamSide.GUEST);
+            }
+        });
+    }
+
+    /**
+     * Steuerung des laufenden 7-m-Werfens unter der Uhr: wer wirft, Tor/Kein Tor,
+     * Trefferfolge beider Teams und die Rücknahme von Fehleingaben. Ein Tor zählt
+     * auf den Spielstand; am Ende steht der Sieger in der Statuszeile.
+     */
+    private void rebuildShootoutBox(GameState state, VBox shootoutBox) {
+        Shootout shootout = state.shootoutProperty().get();
+        if (shootout == null) {
+            shootoutBox.getChildren().clear();
+            return;
+        }
+        Label statusLabel = new Label();
+        statusLabel.getStyleClass().add("game-phase");
+        statusLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> {
+                    TeamSide winner = shootout.winnerProperty().get();
+                    if (winner != null) {
+                        return "🏆 Sieger: " + state.config().teamName(winner);
+                    }
+                    return (shootout.suddenDeath() ? "Sudden Death — " : "7-m-Werfen — ")
+                            + state.config().teamName(shootout.nextThrowerProperty().get())
+                            + " wirft";
+                },
+                shootout.winnerProperty(), shootout.nextThrowerProperty(), shootout.attempts()));
+
+        Button goalButton = new Button("⚽ Tor");
+        goalButton.getStyleClass().add("big-button");
+        goalButton.setOnAction(e -> state.recordShootoutAttempt(true));
+        Button missButton = new Button("❌ Kein Tor");
+        missButton.getStyleClass().add("big-button");
+        missButton.setOnAction(e -> state.recordShootoutAttempt(false));
+        for (Button button : List.of(goalButton, missButton)) {
+            button.setMinWidth(Region.USE_PREF_SIZE);
+            button.disableProperty().bind(shootout.winnerProperty().isNotNull());
+        }
+        Button undoButton = new Button("↩ Wurf zurücknehmen");
+        undoButton.setMinWidth(Region.USE_PREF_SIZE);
+        undoButton.disableProperty().bind(Bindings.isEmpty(shootout.attempts()));
+        undoButton.setOnAction(e -> state.undoShootoutAttempt());
+        HBox buttons = new HBox(10, goalButton, missButton, undoButton);
+        buttons.setAlignment(Pos.CENTER);
+
+        Label attemptsLabel = new Label();
+        attemptsLabel.getStyleClass().add("game-timeout-dots");
+        attemptsLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> state.config().teamName(TeamSide.HOME) + ":  "
+                        + shootout.symbols(TeamSide.HOME) + "    "
+                        + state.config().teamName(TeamSide.GUEST) + ":  "
+                        + shootout.symbols(TeamSide.GUEST),
+                shootout.attempts()));
+
+        shootoutBox.getChildren().setAll(statusLabel, buttons, attemptsLabel);
     }
 
     /**
@@ -740,7 +841,11 @@ public class ControlWindow {
             case PAUSED -> "Pausiert";
             case HALF_TIME -> config.isOvertimePeriod(period)
                     ? "Verlängerungspause" : mode.breakName();
-            case FINISHED -> "Spielende";
+            case FINISHED -> {
+                Shootout shootout = state.shootoutProperty().get();
+                yield shootout != null && shootout.winnerProperty().get() == null
+                        ? "7-m-Werfen" : "Spielende";
+            }
         };
     }
 
