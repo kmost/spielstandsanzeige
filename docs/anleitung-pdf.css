@@ -1,0 +1,50 @@
+/* Stylesheet für die PDF-Ausgabe der Anleitung (pandoc → weasyprint).
+   Wird nur im Release-Workflow verwendet, nicht von der App. */
+
+@page {
+    size: A4;
+    margin: 22mm 20mm;
+    @bottom-center {
+        content: "Seite " counter(page) " von " counter(pages);
+        font-size: 9pt;
+        color: #777777;
+    }
+}
+
+html {
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+}
+
+h1 {
+    font-size: 20pt;
+    border-bottom: 2px solid #2b5797;
+    padding-bottom: 4pt;
+    margin-bottom: 14pt;
+}
+
+h2 {
+    font-size: 14pt;
+    color: #2b5797;
+    margin-top: 18pt;
+    page-break-after: avoid;
+}
+
+ol, ul {
+    padding-left: 1.4em;
+}
+
+li {
+    margin-bottom: 4pt;
+}
+
+img {
+    max-width: 100%;
+    margin: 8pt 0;
+}
+
+strong {
+    color: #000000;
+}

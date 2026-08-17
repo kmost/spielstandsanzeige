@@ -4,6 +4,8 @@ Diese Anleitung führt Schritt für Schritt von der Installation bis zur laufend
 Anzeige auf dem Beamer bzw. zweiten Bildschirm. Es sind keine Technikkenntnisse
 nötig.
 
+![Publikumsanzeige](screenshot-anzeige.png)
+
 ## 1. Installation (nur einmal nötig)
 
 1. Öffnen Sie im Browser diese Seite:
@@ -32,7 +34,9 @@ nötig.
 1. Starten Sie **Spielstandsanzeige** über das Startmenü. Es öffnet sich das
    Fenster **„Kampfgericht“** — hier wird alles bedient.
 2. Tragen Sie die beiden Teamnamen ein (bereits verwendete Namen werden beim
-   Tippen vorgeschlagen) und prüfen Sie Spielmodus und Periodendauer.
+   Tippen vorgeschlagen) und prüfen Sie Spielmodus und Periodendauer. Bei
+   **„Uhr“** wählen Sie, ob die Spieluhr **vorwärts** (0:00 → Ende) oder
+   **rückwärts** (Ende → 0:00) läuft.
 3. Klicken Sie auf **„Spiel anlegen“**.
 
 ## 4. Anzeige auf den zweiten Bildschirm bringen
@@ -53,9 +57,18 @@ nötig.
   Spielabschnitts stoppt die Uhr automatisch und die Hupe ertönt; den nächsten
   Abschnitt (2. Halbzeit bzw. 2./3. Drittel) starten Sie manuell.
 - Pro Team: **+1 Tor / −1 Tor**, **„2 Minuten“** für Zeitstrafen (optional mit
-  Trikotnummer) und **Team-Timeout** (1-Minuten-Countdown mit Hupe).
+  Trikotnummer) und **Team-Timeout** (1-Minuten-Countdown mit Hupe). Jedes Team
+  hat drei Timeouts pro Spiel; die Punkte neben dem Knopf zeigen, wie viele noch
+  übrig sind.
+- Laufende Zeitstrafen sind im Kampfgericht und auf der Anzeige sichtbar. Eine
+  versehentlich gestartete Zeitstrafe brechen Sie mit einem Klick auf ihre
+  Zeile im Kampfgericht ab.
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder
   gestoppt wurde.
+- **„📢 Hupe“** löst die Hupe von Hand aus, z. B. zur Ankündigung des
+  Wiederanpfiffs.
+- **„⏹ Spiel abbrechen“** beendet das Spiel vorzeitig — die Uhr stoppt nach
+  einer Rückfrage endgültig.
 
 ## Konfiguration
 

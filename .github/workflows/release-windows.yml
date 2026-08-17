@@ -4,6 +4,7 @@ name: Windows-Release bauen
 # Java-Runtime (jpackage), erstellt das GitHub-Release und hängt die Dateien an:
 #   - Spielstandsanzeige-<version>.exe  → Installer (ohne Adminrechte, Startmenü-Eintrag)
 #   - ...-windows-portable.zip          → entpacken und Spielstandsanzeige.exe starten
+#   - Spielstandsanzeige-Anleitung.pdf  → Bedienungsanleitung (aus docs/anleitung.md)
 # Release veröffentlichen: git tag v1.2.3 && git push origin v1.2.3
 # Kann über workflow_dispatch auch manuell laufen (Ergebnis dann als Workflow-Artifact).
 
@@ -16,7 +17,27 @@ permissions:
   contents: write
 
 jobs:
+  anleitung-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pandoc und WeasyPrint installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pandoc weasyprint
+
+      - name: Anleitung als PDF setzen
+        run: sh docs/anleitung-pdf-build.sh Spielstandsanzeige-Anleitung.pdf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anleitung-pdf
+          path: Spielstandsanzeige-Anleitung.pdf
+          if-no-files-found: error
+
   windows-exe:
+    needs: anleitung-pdf
     runs-on: windows-latest
     defaults:
       run:
@@ -84,6 +105,12 @@ jobs:
             --dest target/app
           Compress-Archive -Path target/app/Spielstandsanzeige -DestinationPath "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip"
 
+      - name: Anleitung-PDF übernehmen
+        uses: actions/download-artifact@v4
+        with:
+          name: anleitung-pdf
+          path: target/anleitung
+
       - name: Release erstellen und Artefakte anhängen
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -97,6 +124,7 @@ jobs:
           gh release upload $tag `
             (Get-ChildItem target/installer/*.exe).FullName `
             "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip" `
+            "target/anleitung/Spielstandsanzeige-Anleitung.pdf" `
             --clobber
 
       - name: Artefakte als Workflow-Artifact sichern
@@ -106,3 +134,4 @@ jobs:
           path: |
             target/installer/*.exe
             target/*.zip
+            target/anleitung/*.pdf
