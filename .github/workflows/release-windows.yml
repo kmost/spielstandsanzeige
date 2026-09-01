@@ -73,6 +73,11 @@ jobs:
         run: |
           mvn -B dependency:copy-dependencies "-DoutputDirectory=target/dist" "-DincludeScope=runtime"
           Copy-Item target/spielstandsanzeige-*.jar target/dist/
+          # Lizenztexte mit ausliefern: eigene MIT-Lizenz und die GPLv2+CE-Hinweise
+          # für die gebündelten OpenJFX-Jars und die Temurin-Runtime. Alles in
+          # target/dist landet über --input im app/-Ordner beider jpackage-Pakete.
+          Copy-Item LICENSE target/dist/LICENSE.txt
+          Copy-Item THIRD-PARTY-NOTICES.txt target/dist/
 
       - name: Installer-EXE bauen (jpackage)
         run: |

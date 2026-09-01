@@ -139,4 +139,5 @@ Verwendete Abhängigkeiten:
 
 Die Windows-Pakete aus dem Release-Workflow bündeln eine
 [Eclipse-Temurin](https://adoptium.net)-Java-Runtime (GPLv2 mit Classpath
-Exception).
+Exception). Die zugehörigen Lizenztexte liegen den Paketen als
+`app/THIRD-PARTY-NOTICES.txt` bei (Quelle: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)).
