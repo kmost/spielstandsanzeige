@@ -847,8 +847,21 @@ public class ControlWindow {
         // gleiche Reihenfolge wie auf der Anzeige: älteste Strafe (kürzeste Restzeit) oben
         penaltiesBox.getChildren().setAll(state.penalties(side).stream()
                 .sorted(Comparator.comparingLong(timer -> timer.remainingMillisProperty().get()))
-                .map(timer -> penaltyRow(state, timer))
+                .map(timer -> penaltyEntry(state, timer))
                 .toList());
+    }
+
+    /** Strafen-Zeile plus Knopf, der die Strafe auf die doppelte Dauer verlängert. */
+    private Node penaltyEntry(GameState state, PenaltyTimer timer) {
+        Button extendButton = new Button("→ 4 Min");
+        extendButton.setTooltip(new Tooltip("Zeitstrafe auf 4 Minuten verlängern"));
+        extendButton.disableProperty().bind(Bindings.createBooleanBinding(
+                timer::isExtended, timer.remainingMillisProperty()));
+        extendButton.setOnAction(e -> state.extendPenalty(timer));
+        extendButton.setMinWidth(Region.USE_PREF_SIZE);
+        HBox box = new HBox(4, penaltyRow(state, timer), extendButton);
+        box.setAlignment(Pos.CENTER_LEFT);
+        return box;
     }
 
     /** Eine Zeitstrafen-Zeile ist als Ganzes klickbar: ein Klick bricht die Strafe ab. */
