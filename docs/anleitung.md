@@ -65,7 +65,8 @@ nötig.
   übrig sind.
 - Laufende Zeitstrafen sind im Kampfgericht und auf der Anzeige sichtbar. Eine
   versehentlich gestartete Zeitstrafe brechen Sie mit einem Klick auf ihre
-  Zeile im Kampfgericht ab.
+  Zeile im Kampfgericht ab. Mit **„→ 4 Min“** neben der Zeile verlängern Sie eine
+  laufende 2-Minuten-Strafe auf insgesamt 4 Minuten (einmal je Strafe).
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder
   gestoppt wurde.
 - Steht es nach dem regulären Spielende unentschieden und muss ein Sieger

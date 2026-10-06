@@ -84,6 +84,11 @@ public class GameState {
                 config.profile().penaltyDuration().toMillis()));
     }
 
+    /** Verlängert eine laufende Zeitstrafe auf die doppelte Dauer (2 → 4 Minuten). */
+    public void extendPenalty(PenaltyTimer timer) {
+        timer.extend();
+    }
+
     public void removePenalty(PenaltyTimer timer) {
         homePenalties.remove(timer);
         guestPenalties.remove(timer);

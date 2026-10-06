@@ -119,6 +119,20 @@ class GameStateTest {
     }
 
     @Test
+    void penaltyCanBeExtendedToFourMinutesOnce() {
+        state.clock().start();
+        state.addPenalty(TeamSide.HOME);
+        time.advanceMillis(60_000);
+        state.tick();
+        PenaltyTimer timer = state.penalties(TeamSide.HOME).get(0);
+        state.extendPenalty(timer);
+        assertEquals(180_000, penaltyRemaining(TeamSide.HOME));
+        state.extendPenalty(timer); // zweites Verlängern ändert nichts
+        assertEquals(180_000, penaltyRemaining(TeamSide.HOME));
+        assertTrue(timer.isExtended());
+    }
+
+    @Test
     void penaltyStoresPlayerNumber() {
         state.clock().start();
         state.addPenalty(TeamSide.HOME, " 7 ");

@@ -55,7 +55,8 @@ mvn javafx:run
    optional mit Trikotnummer (Feld „Nr.“). Zeitstrafen sind an die Spieluhr gekoppelt
    (pausieren mit), verschwinden bei Ablauf automatisch und lassen sich am
    Kampfgericht mit einem einfachen Klick auf den Counter abbrechen — genau wie
-   ein laufendes Team-Timeout.
+   ein laufendes Team-Timeout. Über „→ 4 Min“ neben der Strafe lässt sie sich auf
+   4 Minuten verlängern.
 5. **Team-Timeout** pro Team: hält die Spieluhr an und startet einen 1-Minuten-Countdown
    in Echtzeit (Hupe bei Ablauf, vorzeitig beendbar). Das Spiel bleibt unterbrochen,
    bis das Kampfgericht es mit **„Fortsetzen“** wieder startet — das beendet auch ein
