@@ -51,7 +51,13 @@ public class ControlPreview extends Application {
         GameState state = new GameState(config);
         control.gameStateProperty().set(state);
         state.clock().start();
-        if (Boolean.getBoolean("preview.draw")) {
+        if (Boolean.getBoolean("preview.lastPeriod")) {
+            // -Dpreview.lastPeriod=true: laufende 2. Halbzeit (breiteste Knopfzeile: „1. Verlängerung starten“)
+            state.clock().setElapsed(config.periodMillis());
+            state.clock().tick();
+            state.clock().startNextPeriod();
+            state.clock().setElapsed(config.periodMillis() + 71_000);
+        } else if (Boolean.getBoolean("preview.draw")) {
             // -Dpreview.draw=true: Unentschieden nach regulärem Ende (Knopf „Spiel beenden“)
             state.addGoal(TeamSide.HOME);
             state.addGoal(TeamSide.GUEST);

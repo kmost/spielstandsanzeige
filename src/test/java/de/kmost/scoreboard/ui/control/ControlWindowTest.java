@@ -277,6 +277,55 @@ class ControlWindowTest {
         assertEquals(1, dialogs.warnings.size());
     }
 
+    @Test
+    void clockButtonsStayClickableInLastPeriodAtAllWindowWidths() {
+        for (double width : new double[] {760, 940, 1200}) {
+            control = newWindow(width, 700);
+            GameState state = createGame();
+            click("▶ Start");
+            onFx(() -> {
+                GameClock clock = state.clock();
+                clock.setElapsed(state.config().periodMillis());
+                clock.tick();
+                clock.startNextPeriod();
+                clock.setElapsed(state.config().periodMillis() + 71_000);
+            });
+            // in der letzten Periode heißt der Folgeknopf „1. Verlängerung starten“ und die Zeile ist am breitesten
+            for (String prefix : new String[] {"⏸ Pause", "⏭", "🥅 7-m-Werfen…", "🕑 Zeit stellen…"}) {
+                assertTrue(fx(() -> topmostAtCenterIsPartOf(button(root(), prefix))),
+                        "Knopf „" + prefix + "“ wird bei Breite " + width + " von einem anderen Element überdeckt");
+            }
+        }
+    }
+
+    /** Liegt über der Mitte des Knopfs ein anderes (später gezeichnetes) Element, das Klicks abfängt? */
+    private static boolean topmostAtCenterIsPartOf(Button button) {
+        javafx.geometry.Bounds bounds = button.localToScene(button.getBoundsInLocal());
+        java.util.List<javafx.scene.Node> hits = new java.util.ArrayList<>();
+        collectHits(button.getScene().getRoot(), bounds.getCenterX(), bounds.getCenterY(), hits);
+        javafx.scene.Node top = hits.get(hits.size() - 1);
+        for (javafx.scene.Node n = top; n != null; n = n.getParent()) {
+            if (n == button) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void collectHits(javafx.scene.Node node, double x, double y, java.util.List<javafx.scene.Node> out) {
+        if (!node.isVisible() || node.isMouseTransparent()) {
+            return;
+        }
+        if (node.localToScene(node.getBoundsInLocal()).contains(x, y)) {
+            out.add(node);
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                collectHits(child, x, y, out);
+            }
+        }
+    }
+
     // --- 7-m-Werfen ---
 
     @Test
