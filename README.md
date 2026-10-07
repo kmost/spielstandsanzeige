@@ -100,7 +100,11 @@ mvn test
 ```
 
 Das Model (Uhr, Zeitstrafen, Spielstand) ist UI-frei und vollständig per Unit-Tests
-mit einer Fake-Zeitquelle abgedeckt.
+mit einer Fake-Zeitquelle abgedeckt. Dazu prüfen UI-Tests ohne sichtbares Fenster die
+Knopf-Logik der Konsole und das Raster der Anzeige bei mehreren Fenstergrößen; sie brauchen
+ein Display (Linux ohne Bildschirm: `xvfb-run -a mvn test`) und werden sonst übersprungen.
+`mvn test` erzeugt außerdem einen Coverage-Bericht unter `target/site/jacoco/index.html`.
+Details in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Windows-Release (EXE)
 

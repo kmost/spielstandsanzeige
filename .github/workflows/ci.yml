@@ -1,8 +1,8 @@
 name: CI
 
 # Baut und testet die Spielstandsanzeige bei jedem Push und Pull Request.
-# Die Tests betreffen nur das UI-freie Model (javafx.base) und laufen
-# deshalb problemlos headless auf dem Linux-Runner.
+# Model-Tests laufen headless; die UI-Tests (@Tag("ui")) brauchen ein Display und
+# laufen deshalb unter xvfb. Ohne Display werden sie übersprungen, nicht rot.
 
 on:
   push:
@@ -20,5 +20,13 @@ jobs:
           java-version: '25'
           cache: maven
 
-      - name: Bauen und Tests ausführen
-        run: mvn -B test
+      - name: Bauen und Tests ausführen (UI-Tests unter xvfb)
+        run: xvfb-run -a mvn -B test
+
+      - name: Coverage-Bericht hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco
+          if-no-files-found: ignore
