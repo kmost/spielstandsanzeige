@@ -107,10 +107,18 @@ final class DisplayLayout {
     static final double SHOOTOUT_CLOCK_SHARE = 0.5;
 
     /**
+     * Faktor, auf den die Tore-Zeile beim 7-m-Werfen schrumpft (−33 %): Zeilenhöhe und Schrift der
+     * Torzahlen. Die freie Höhe (0.33 · {@code ROW_SCORE}) geht an die Uhr-Zeile und dort allein an die
+     * Wurf-Liste; Basisschrift, Uhr, Strafen, Namen und Banner bleiben unverändert.
+     */
+    static final double SHOOTOUT_SCORE_SHARE = 0.67;
+
+    /**
      * Schriftgröße (em der Basis) der Wurf-Liste. Die Liste hat drei Zeilen (Rundennummern 0.8 em
-     * der Listenschrift, Heim, Gast) und füllt damit etwa die untere Hälfte der Zeile
-     * ({@code (1 − SHOOTOUT_CLOCK_SHARE) · ROW_CLOCK / BASE_FONT_HEIGHT_SHARE ≈ 3 em}); was nicht
+     * der Listenschrift, Heim, Gast) und bekommt die untere Hälfte der Uhr-Zeile plus die von der
+     * Tore-Zeile abgegebene Höhe ({@code ((1 − SHOOTOUT_CLOCK_SHARE) · ROW_CLOCK
+     * + (1 − SHOOTOUT_SCORE_SHARE) · ROW_SCORE) / BASE_FONT_HEIGHT_SHARE ≈ 5 em}); was nicht
      * passt, wird in {@link FitBox} eingepasst.
      */
-    static final double SHOOTOUT_TABLE_EM = 0.9;
+    static final double SHOOTOUT_TABLE_EM = 1.6;
 }

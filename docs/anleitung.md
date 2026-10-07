@@ -105,8 +105,8 @@ nötig.
   oder **„Kein Tor“**. Den Wechsel der Schützen, das vorzeitige Ende bei
   uneinholbarem Vorsprung, das Sudden Death nach 5 Schützen je Team und die
   Siegermeldung übernimmt das Programm. Jeder Treffer zählt aufs
-  Endergebnis. Auf der Publikumsanzeige wird die Uhr dabei halb so hoch, und
-  darunter erscheint in der Mitte eine Liste der Würfe (Rundennummern, Zeilen
+  Endergebnis. Auf der Publikumsanzeige wird die Uhr dabei halb so hoch, die
+  Toranzeige um ein Drittel kleiner, und in der Mitte erscheint darunter eine große Liste der Würfe (Rundennummern, Zeilen
   „Heim“ und „Gast“, ⚽ Tor, ✋ Fehlwurf — dieselbe Tabelle wie im
   Kampfgericht; die ersten fünf Runden stehen von Anfang an darin, höchstens
   15 Runden). Sie bleibt nach der Siegermeldung

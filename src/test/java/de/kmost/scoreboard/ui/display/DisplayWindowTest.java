@@ -367,6 +367,10 @@ class DisplayWindowTest {
         List<Bounds> plainPenalties = fx(() -> labels(plain, "penalty").stream()
                 .map(l -> sceneBounds(l)).toList());
         assertTrue(texts(plain, "shootout-team").isEmpty(), "ohne 7-m-Werfen keine Liste");
+        double plainScoreFont = fx(() -> labels(plain, "score").get(0).getFont().getSize());
+        double plainScoreRow = fx(() -> sceneBounds(labels(plain, "score").get(0).getParent()).getHeight());
+        double plainNameY = fx(() -> sceneBounds(labels(plain, "team-name").get(0)).getMinY());
+        double plainDotsY = fx(() -> sceneBounds(labels(plain, "timeout-dots").get(0)).getMinY());
 
         ObjectProperty<GameState> property = new SimpleObjectProperty<>();
         DisplayWindow window = fx(() -> new DisplayWindow(property, width, height));
@@ -398,14 +402,31 @@ class DisplayWindowTest {
                     .min().orElseThrow();
             assertTrue(list.getMaxY() <= scoreTop + 1, "Liste endet vor der Torzeile: " + list);
 
-            // die Strafen-Spalten behalten Platz und Position
+            // die Tore-Zeile ist beim 7-m-Werfen um 33 % kleiner (Zeilenhöhe und Torzahl-Schrift) ...
+            Label score = labels(window, "score").get(0);
+            assertEquals(0.67, score.getFont().getSize() / plainScoreFont, 0.01, "Torzahl-Schrift × 0,67");
+            assertEquals(0.67, sceneBounds(score.getParent()).getHeight() / plainScoreRow, 0.02,
+                    "Tore-Zeile × 0,67");
+            // ... die Teamnamen-Zeile bleibt dagegen genau, wo sie war
+            assertEquals(plainNameY, sceneBounds(labels(window, "team-name").get(0)).getMinY(), 1.5, "Teamname y");
+            assertEquals(plainDotsY, sceneBounds(labels(window, "timeout-dots").get(0)).getMinY(), 1.5,
+                    "Timeout-Punkte y");
+            // die frei gewordene Höhe gehört der Wurf-Liste: sie ist deutlich höher als die Uhr
+            assertTrue(list.getHeight() >= 1.4 * clock.getHeight(),
+                    "Liste nutzt die zusätzliche Höhe: Liste " + list + " Uhr " + clock);
+
+            // die Strafen-Spalten behalten Größe und Spalte; vertikal sitzt ihr Block mittig in der nun
+            // höheren Zeile, verschiebt sich dabei aber nur um wenige Pixel (höchstens 2 % der Fensterhöhe)
             List<Label> penalties = labels(window, "penalty");
             assertEquals(plainPenalties.size(), penalties.size());
             for (int i = 0; i < penalties.size(); i++) {
                 Bounds before = plainPenalties.get(i);
                 Bounds after = sceneBounds(penalties.get(i));
                 assertEquals(before.getMinX(), after.getMinX(), 1, "Strafen-Chip " + i + " x");
-                assertEquals(before.getMinY(), after.getMinY(), 1, "Strafen-Chip " + i + " y");
+                assertEquals(before.getWidth(), after.getWidth(), 1, "Strafen-Chip " + i + " Breite");
+                assertEquals(before.getHeight(), after.getHeight(), 1, "Strafen-Chip " + i + " Höhe");
+                assertEquals(before.getMinY(), after.getMinY(), 0.02 * height, "Strafen-Chip " + i + " y");
+                assertTrue(after.getMaxY() <= scoreTop, "Strafen-Chip " + i + " reicht nicht in die Tor-Zeile");
             }
         });
     }
