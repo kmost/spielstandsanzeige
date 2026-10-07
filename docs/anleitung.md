@@ -122,5 +122,8 @@ Format PNG, JPG oder GIF. Auch der **Hupenton** ist wählbar
 (fünf eingebaute Töne oder eine eigene Audiodatei). Jede Änderung ist sofort
 auf der Anzeige sichtbar und bleibt auch nach einem Neustart des Programms
 erhalten. Eine fertige Gestaltung kann als benanntes **Theme** gespeichert und
-später wieder geladen werden; „Standardfarben“ setzt alles auf die
-Voreinstellung zurück.
+später wieder geladen werden. Speichern Sie unter einem bestehenden Namen,
+wird das Theme überschrieben. Ergibt ein neuer Name denselben Dateinamen wie ein
+anderes Theme (z. B. „A/B“ und „A_B“), erscheint ein Hinweis und nichts wird
+überschrieben — wählen Sie dann einen anderen Namen. „Standardfarben“ setzt alles
+auf die Voreinstellung zurück.

@@ -188,6 +188,100 @@ class ThemeRepositoryTest {
         }
     }
 
+    private Path themeFile(String fileName) {
+        return storeDir().resolve("themes").resolve(fileName);
+    }
+
+    @Test
+    void umlautsStayInFileName() {
+        ThemeRepository repository = new ThemeRepository(storeDir());
+        assertTrue(repository.saveTheme("Größe", Theme.defaults()).saved());
+        assertTrue(Files.exists(themeFile("Größe.properties")));
+        assertNotNull(repository.loadTheme("Größe"));
+    }
+
+    @Test
+    void sameDerivedFileNameForDifferentNamesIsReportedAsConflict() {
+        ThemeRepository repository = new ThemeRepository(storeDir());
+        Theme first = Theme.defaults().with(ThemeColor.CLOCK, Color.web("#111111"));
+        assertTrue(repository.saveTheme("A/B", first).saved());
+
+        ThemeRepository.SaveResult result = repository.saveTheme("A_B",
+                Theme.defaults().with(ThemeColor.CLOCK, Color.web("#222222")));
+
+        assertEquals(ThemeRepository.SaveResult.Status.NAME_CONFLICT, result.status());
+        assertEquals("A/B", result.conflictingName());
+        // nichts wurde überschrieben, es gibt weiter genau ein Theme
+        assertEquals(first, repository.loadTheme("A/B"));
+        assertNull(repository.loadTheme("A_B"));
+        assertEquals(List.of("A/B"), repository.themeNames());
+    }
+
+    @Test
+    void savingUnderTheSameNameOverwrites() {
+        ThemeRepository repository = new ThemeRepository(storeDir());
+        repository.saveTheme("Dunkel", Theme.defaults());
+        Theme changed = Theme.defaults().with(ThemeColor.CLOCK, Color.web("#abcdef"));
+
+        assertTrue(repository.saveTheme("Dunkel", changed).saved());
+
+        assertEquals(changed, repository.loadTheme("Dunkel"));
+        assertEquals(List.of("Dunkel"), repository.themeNames());
+    }
+
+    @Test
+    void themeFromOlderVersionWithReplacedUmlautsIsStillFoundAndOverwritten() throws IOException {
+        // frühere Versionen ersetzten Umlaute im Dateinamen: „Größe“ lag als Gr__e.properties
+        ThemeRepository old = new ThemeRepository(storeDir());
+        old.saveTheme("Größe", Theme.defaults().with(ThemeColor.CLOCK, Color.web("#111111")));
+        Files.move(themeFile("Größe.properties"), themeFile("Gr__e.properties"));
+
+        ThemeRepository repository = new ThemeRepository(storeDir());
+        assertNotNull(repository.loadTheme("Größe"));
+
+        Theme changed = Theme.defaults().with(ThemeColor.CLOCK, Color.web("#abcdef"));
+        assertTrue(repository.saveTheme("Größe", changed).saved());
+        assertEquals(changed, repository.loadTheme("Größe"));
+        assertTrue(Files.exists(themeFile("Gr__e.properties")));
+        assertTrue(Files.notExists(themeFile("Größe.properties")));
+        assertEquals(List.of("Größe"), repository.themeNames());
+
+        repository.deleteTheme("Größe");
+        assertTrue(repository.themeNames().isEmpty());
+        assertTrue(Files.notExists(themeFile("Gr__e.properties")));
+    }
+
+    @Test
+    void themeFileWithoutStoredNameIsFoundByItsFileName() throws IOException {
+        ThemeRepository repository = new ThemeRepository(storeDir());
+        repository.saveTheme("Alt", Theme.defaults());
+        String content = Files.readString(themeFile("Alt.properties"))
+                .replaceFirst("(?m)^_name=.*\\R", "");
+        Files.writeString(themeFile("Alt.properties"), content);
+
+        assertNotNull(repository.loadTheme("Alt"));
+        assertEquals(List.of("Alt"), repository.themeNames());
+    }
+
+    @Test
+    void windowsDeviceNamesGetAPrefix() {
+        ThemeRepository repository = new ThemeRepository(storeDir());
+        assertTrue(repository.saveTheme("CON", Theme.defaults()).saved());
+        assertTrue(Files.exists(themeFile("_CON.properties")));
+        assertNotNull(repository.loadTheme("CON"));
+    }
+
+    @Test
+    void writeFailureIsReported() throws IOException {
+        Files.createDirectories(storeDir());
+        Files.writeString(themeFile(""), "kein Verzeichnis"); // blockiert „themes/“
+        ThemeRepository repository = new ThemeRepository(storeDir());
+
+        ThemeRepository.SaveResult result = repository.saveTheme("Dunkel", Theme.defaults());
+
+        assertEquals(ThemeRepository.SaveResult.Status.WRITE_FAILED, result.status());
+    }
+
     @Test
     void invalidColorFallsBackToDefault() throws IOException {
         ThemeRepository repository = new ThemeRepository(storeDir());

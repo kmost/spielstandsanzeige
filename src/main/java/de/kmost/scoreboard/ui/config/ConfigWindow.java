@@ -401,8 +401,15 @@ public class ConfigWindow {
             warn("Bitte zuerst einen Theme-Namen eingeben.");
             return;
         }
-        themeRepository.saveTheme(name, pickedTheme());
-        refreshThemeNames(name);
+        ThemeRepository.SaveResult result = themeRepository.saveTheme(name, pickedTheme());
+        switch (result.status()) {
+            case SAVED -> refreshThemeNames(name);
+            case NAME_CONFLICT -> warn("Das Theme „" + name + "“ kann nicht gespeichert werden: "
+                    + "Sein Dateiname ist schon für das Theme „" + result.conflictingName()
+                    + "“ vergeben. Bitte einen anderen Namen wählen.");
+            case WRITE_FAILED -> warn("Das Theme „" + name + "“ konnte nicht gespeichert werden "
+                    + "(Details in der Logdatei).");
+        }
     }
 
     private void deleteTheme() {
