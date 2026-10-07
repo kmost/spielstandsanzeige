@@ -113,18 +113,22 @@ Spielstands definieren die Faktoren nur die Verhältnisse zueinander.
   Strafen dazukommen oder auslaufen), Uhr mittig, darunter der Timeout-Chip.
 - Zeilen 2 und 3 (`SCORE_ROW_COLUMNS`): `42 % | 16 % | 42 %` — identische Spalten, damit die
   Teamnamen exakt unter ihren Toren stehen.
-- **Beim 7-m-Werfen** teilt sich die Mittelspalte der Zeile 1 in zwei gleich hohe Hälften
-  (`SHOOTOUT_CLOCK_SHARE` = 0.5): oben das Uhr-Panel (Uhr + Timeout-Chip), dessen Uhr-Schrift
-  im selben Verhältnis schrumpft, darunter die Wurf-Liste. Das gilt, sobald ein 7-m-Werfen
-  existiert — auch nach feststehendem Sieger, damit das Layout bis zum nächsten Spiel stabil
-  bleibt. Die Strafen-Spalten außen behalten die volle Zeilenhöhe, alle übrigen Zeilen und
-  Spalten bleiben unverändert (`DisplayWindow.arrangeCenter`). Die Liste ist dieselbe Tabelle wie in
+- **Beim 7-m-Werfen** wird die Tore-Zeile (Zeile 2) um 33 % kleiner (`SHOOTOUT_SCORE_SHARE` =
+  0.67: Zeilenhöhe und Schrift der Torzahlen); die frei werdende Höhe (0.33 · `ROW_SCORE`) geht
+  an Zeile 1 (`DisplayWindow.clockRow`/`scoreRow`). Die Summe der Zeilenhöhen und die Basisschrift
+  bleiben gleich, Zeile 3 und die Banner ändern sich nicht. In Zeile 1 teilt sich die Mittelspalte:
+  oben das Uhr-Panel (Uhr + Timeout-Chip) mit der halben **bisherigen** Zeilenhöhe
+  (`SHOOTOUT_CLOCK_SHARE` = 0.5, Uhr-Schrift im selben Verhältnis), darunter die Wurf-Liste mit
+  der gesamten übrigen, nun größeren Höhe. Das gilt, sobald ein 7-m-Werfen existiert — auch nach
+  feststehendem Sieger, damit das Layout bis zum nächsten Spiel stabil bleibt. Die Strafen-Spalten
+  außen behalten Spalte und Chip-Größe; ihr Block sitzt mittig in der höheren Zeile und verschiebt
+  sich dabei um wenige Pixel (`DisplayWindow.arrangeCenter`). Die Liste ist dieselbe Tabelle wie in
   der Kampfgericht-Konsole (`ui/ShootoutTable`): Rundennummern, Zeilen „Heim“ und „Gast“,
   ⚽ Tor / ✋ Fehlwurf. Die ersten fünf Runden (die regulären Schützen) stehen von Anfang an
   darin, ihre noch leeren Zellen reservieren den Platz der Symbole; höchstens 15 Runden (ältere
-  verlassen sie per „…“, die jüngsten bleiben sichtbar). Schrift: `SHOOTOUT_TABLE_EM` (0.9 em der Basis × Faktor Statuszeile); ist die Liste
-  breiter oder höher als ihre Hälfte, wird sie samt Uhr-Panel proportional eingepasst (`FitBox`),
-  nie gekürzt.
+  verlassen sie per „…“, die jüngsten bleiben sichtbar). Schrift: `SHOOTOUT_TABLE_EM` (1.6 em der Basis × Faktor Statuszeile); ist die Liste
+  breiter oder höher als ihr Platz, wird sie proportional eingepasst (`FitBox`), nie gekürzt —
+  bei den üblichen Fenstern deckelt die Höhe der Liste ihre Größe.
 - Teamnamen brechen ab `TEAM_NAME_MAX_WIDTH_SHARE` (40 %) der Fensterbreite um.
 - Außenabstand des Spielstand-Rasters: `GRID_PADDING_VERTICAL/HORIZONTAL` (10/15 px).
 

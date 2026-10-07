@@ -94,6 +94,8 @@ public class DisplayWindow {
     // Größenfaktoren innerhalb des Spielstands (1.0 = Standard)
     private final DoubleProperty clockScale = new SimpleDoubleProperty(1);
     private final DoubleProperty scoreScale = new SimpleDoubleProperty(1);
+    /** 1 im Normalbetrieb; beim 7-m-Werfen {@code SHOOTOUT_SCORE_SHARE}: Tore-Zeile und Torzahlen schrumpfen. */
+    private final DoubleProperty scoreShrink = new SimpleDoubleProperty(1);
     private final DoubleProperty nameScale = new SimpleDoubleProperty(1);
     private final DoubleProperty penaltyScale = new SimpleDoubleProperty(1);
     private final DoubleProperty timeoutScale = new SimpleDoubleProperty(1);
@@ -298,8 +300,8 @@ public class DisplayWindow {
         outer.setMinHeight(0);
         outer.getColumnConstraints().add(percentColumn(100));
         outer.getRowConstraints().addAll(
-                weightedRow(ROW_CLOCK, clockScale),
-                weightedRow(ROW_SCORE, scoreScale),
+                clockRow(),
+                scoreRow(),
                 weightedRow(ROW_NAMES, nameScale));
         outer.setPadding(new Insets(GRID_PADDING_VERTICAL, GRID_PADDING_HORIZONTAL,
                 GRID_PADDING_VERTICAL, GRID_PADDING_HORIZONTAL));
@@ -323,10 +325,12 @@ public class DisplayWindow {
                 && GridPane.getColumnIndex(node) == 1);
         if (shootout == null) {
             clockShrink.set(1);
+            scoreShrink.set(1);
             placeCenter(topRow, clockBox);
             return;
         }
         clockShrink.set(SHOOTOUT_CLOCK_SHARE);
+        scoreShrink.set(SHOOTOUT_SCORE_SHARE);
         FitBox clockPanel = new FitBox(clockBox);
 
         ShootoutTable list = new ShootoutTable(shootout, "shootout-number", "shootout-team",
@@ -337,11 +341,18 @@ public class DisplayWindow {
         GridPane center = new GridPane();
         center.setMinHeight(0);
         center.getColumnConstraints().add(percentColumn(100));
+        // Die Zeile ist beim 7-m-Werfen höher (die Tore-Zeile gibt Höhe ab). Das Uhr-Panel behält
+        // trotzdem seine bisherige absolute Höhe (SHOOTOUT_CLOCK_SHARE der ursprünglichen Uhr-Zeile),
+        // die gesamte zusätzliche Höhe geht an die Wurf-Liste.
         RowConstraints top = new RowConstraints();
-        top.setPercentHeight(100 * SHOOTOUT_CLOCK_SHARE);
+        top.percentHeightProperty().bind(Bindings.createDoubleBinding(
+                () -> 100 * SHOOTOUT_CLOCK_SHARE * ROW_CLOCK * clockScale.get()
+                        / (ROW_CLOCK * clockScale.get()
+                                + ROW_SCORE * scoreScale.get() * (1 - scoreShrink.get())),
+                clockScale, scoreScale, scoreShrink));
         top.setVgrow(Priority.ALWAYS);
         RowConstraints bottom = new RowConstraints();
-        bottom.setPercentHeight(100 * (1 - SHOOTOUT_CLOCK_SHARE));
+        bottom.percentHeightProperty().bind(top.percentHeightProperty().multiply(-1).add(100));
         bottom.setVgrow(Priority.ALWAYS);
         center.getRowConstraints().addAll(top, bottom);
         center.add(clockPanel, 0, 0);
@@ -459,6 +470,30 @@ public class DisplayWindow {
         return row;
     }
 
+    /**
+     * Uhr-Zeile: wie {@link #weightedRow}, beim 7-m-Werfen um die Höhe erweitert, die die
+     * Tore-Zeile durch ihr Schrumpfen abgibt. Ohne 7-m-Werfen ist der Zuschlag exakt 0.
+     */
+    private RowConstraints clockRow() {
+        RowConstraints row = new RowConstraints();
+        row.setVgrow(Priority.ALWAYS);
+        row.percentHeightProperty().bind(Bindings.createDoubleBinding(
+                () -> 100 * ROW_CLOCK * clockScale.get() / rowWeightSum()
+                        + 100 * ROW_SCORE * scoreScale.get() * (1 - scoreShrink.get()) / rowWeightSum(),
+                clockScale, scoreScale, nameScale, scoreShrink));
+        return row;
+    }
+
+    /** Tore-Zeile: wie {@link #weightedRow}, beim 7-m-Werfen auf {@code SHOOTOUT_SCORE_SHARE} verkleinert. */
+    private RowConstraints scoreRow() {
+        RowConstraints row = new RowConstraints();
+        row.setVgrow(Priority.ALWAYS);
+        row.percentHeightProperty().bind(Bindings.createDoubleBinding(
+                () -> 100 * ROW_SCORE * scoreScale.get() / rowWeightSum() * scoreShrink.get(),
+                clockScale, scoreScale, nameScale, scoreShrink));
+        return row;
+    }
+
     /** Summe der gewichteten Zeilenanteile; 1.0 bei Standard-Größenfaktoren. */
     private double rowWeightSum() {
         return ROW_CLOCK * clockScale.get()
@@ -473,7 +508,10 @@ public class DisplayWindow {
     private Node buildScoreCell(GameState state, TeamSide side) {
         Label scoreLabel = new Label();
         scoreLabel.getStyleClass().add("score");
-        bindFontSize(scoreLabel, SCORE_EM, scoreScale);
+        scoreLabel.styleProperty().bind(Bindings.createStringBinding(
+                () -> String.format(Locale.US, "-fx-font-size: %.2fem; ",
+                        SCORE_EM * scoreScale.get() * scoreShrink.get()),
+                scoreScale, scoreShrink));
         scoreLabel.textProperty().bind(state.scoreProperty(side).asString());
 
         StackPane cell = new StackPane(scoreLabel);
