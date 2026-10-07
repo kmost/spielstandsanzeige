@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.ui.BannerConfig;
 import de.kmost.scoreboard.ui.FontScale;
 import de.kmost.scoreboard.ui.Theme;
@@ -39,13 +40,19 @@ public class ThemeRepository {
     private static final String NAME_KEY = "_name";
 
     private final Path baseDir;
+    private final ProblemReporter reporter;
 
     public ThemeRepository() {
-        this(Path.of(System.getProperty("user.home"), ".spielstandsanzeige"));
+        this(Path.of(System.getProperty("user.home"), ".spielstandsanzeige"), ProblemReporter.shared());
     }
 
     public ThemeRepository(Path baseDir) {
+        this(baseDir, new ProblemReporter(baseDir.resolve("spielstandsanzeige.log")));
+    }
+
+    public ThemeRepository(Path baseDir, ProblemReporter reporter) {
         this.baseDir = baseDir;
+        this.reporter = reporter;
     }
 
     /** Alle gespeicherten Theme-Namen, alphabetisch sortiert. */
@@ -61,7 +68,7 @@ public class ThemeRepository {
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
         } catch (IOException e) {
-            System.err.println("Themes nicht lesbar: " + e.getMessage());
+            reporter.report("Themes nicht lesbar", e);
             return List.of();
         }
     }
@@ -82,7 +89,7 @@ public class ThemeRepository {
         try {
             Files.deleteIfExists(themeFile(name));
         } catch (IOException e) {
-            System.err.println("Theme „" + name + "“ konnte nicht gelöscht werden: " + e.getMessage());
+            reporter.report("Theme „" + name + "“ konnte nicht gelöscht werden", e);
         }
     }
 
@@ -146,7 +153,7 @@ public class ThemeRepository {
             Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
             return target.toFile();
         } catch (IOException e) {
-            System.err.println("Banner-Bild konnte nicht gespeichert werden: " + e.getMessage());
+            reporter.report("Banner-Bild konnte nicht gespeichert werden", e);
             return null;
         }
     }
@@ -242,7 +249,7 @@ public class ThemeRepository {
         return props.getProperty(NAME_KEY, fileName.substring(0, fileName.length() - ".properties".length()));
     }
 
-    private static Theme themeFrom(Properties props) {
+    private Theme themeFrom(Properties props) {
         Map<ThemeColor, Color> colors = new EnumMap<>(ThemeColor.class);
         for (ThemeColor color : ThemeColor.values()) {
             String value = props.getProperty(color.key(), "");
@@ -250,7 +257,7 @@ public class ThemeRepository {
                 try {
                     colors.put(color, Color.web(value));
                 } catch (IllegalArgumentException e) {
-                    System.err.println("Ungültige Farbe für „" + color.key() + "“: " + value);
+                    reporter.log("Ungültige Farbe für „" + color.key() + "“: " + value, e);
                 }
             }
         }
@@ -262,11 +269,11 @@ public class ThemeRepository {
     }
 
     /** Größenfaktor; fehlend oder unlesbar = Standard 1.0. */
-    private static double scaleFrom(Properties props, String key) {
+    private double scaleFrom(Properties props, String key) {
         try {
             return Double.parseDouble(props.getProperty(key, "1.0"));
         } catch (NumberFormatException e) {
-            System.err.println("Ungültiger Wert für „" + key + "“: " + props.getProperty(key));
+            reporter.log("Ungültiger Wert für „" + key + "“: " + props.getProperty(key), e);
             return 1.0;
         }
     }
@@ -284,7 +291,7 @@ public class ThemeRepository {
         return props;
     }
 
-    private static Properties read(Path file) {
+    private Properties read(Path file) {
         if (!Files.isRegularFile(file)) {
             return null;
         }
@@ -293,20 +300,19 @@ public class ThemeRepository {
             props.load(reader);
             return props;
         } catch (IOException e) {
-            System.err.println("Datei „" + file.getFileName() + "“ nicht lesbar: " + e.getMessage());
+            reporter.report("Datei „" + file.getFileName() + "“ nicht lesbar", e);
             return null;
         }
     }
 
-    private static void write(Path file, Properties props, String comment) {
+    private void write(Path file, Properties props, String comment) {
         try {
             Files.createDirectories(file.getParent());
             try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
                 props.store(writer, comment);
             }
         } catch (IOException e) {
-            System.err.println("Datei „" + file.getFileName() + "“ konnte nicht gespeichert werden: "
-                    + e.getMessage());
+            reporter.report("Datei „" + file.getFileName() + "“ konnte nicht gespeichert werden", e);
         }
     }
 

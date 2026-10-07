@@ -61,6 +61,12 @@ public class ControlPreview extends Application {
         state.startTeamTimeout(TeamSide.GUEST);
         state.tick();
 
+        // Statuszeile für Problemmeldungen über -Dpreview.problem="Text" einblenden
+        String problem = System.getProperty("preview.problem");
+        if (problem != null) {
+            control.showProblem(problem);
+        }
+
         // mehrere Layout-Durchläufe wie im echten Betrieb
         for (int i = 0; i < 5 && control.scene().getRoot().isNeedsLayout(); i++) {
             control.scene().getRoot().applyCss();

@@ -74,6 +74,10 @@ nötig.
   „Fortsetzen“ weitergestartet; ein gerade laufendes Team-Timeout läuft nicht
   weiter. Das Schließen des Fensters fragt nach, solange das Spiel nicht beendet
   ist. Ein beendetes oder abgebrochenes Spiel wird nicht mehr gesichert.
+- Geht beim Speichern oder Laden etwas schief (z. B. Teams, Themes, Spielstand
+  oder Hupe), erscheint am unteren Rand des Kampfgerichts für einige Sekunden eine
+  rote Meldung. Das Spiel läuft weiter. Einzelheiten stehen in der Logdatei
+  `~/.spielstandsanzeige/spielstandsanzeige.log`.
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder
   gestoppt wurde.
 - Steht es nach dem regulären Spielende unentschieden und muss ein Sieger

@@ -1,12 +1,16 @@
 package de.kmost.scoreboard.sound;
 
 import java.io.File;
+import java.io.IOException;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
+
+import de.kmost.scoreboard.diagnostics.ProblemReporter;
 
 /**
  * Hupe des Kampfgerichts. Die eingebauten Töne werden zur Laufzeit als
@@ -39,9 +43,15 @@ public final class Horn {
 
     private static final float SAMPLE_RATE = 44_100f;
 
+    private final ProblemReporter reporter;
     private Clip clip;
 
     public Horn() {
+        this(ProblemReporter.shared());
+    }
+
+    public Horn(ProblemReporter reporter) {
+        this.reporter = reporter;
         useTone(Tone.KLASSISCH);
     }
 
@@ -72,7 +82,7 @@ public final class Horn {
             newClip = AudioSystem.getClip();
             newClip.open(new AudioFormat(SAMPLE_RATE, 16, 1, true, false), pcm, 0, pcm.length);
         } catch (LineUnavailableException | IllegalArgumentException e) {
-            System.err.println("Hupe nicht verfügbar: " + e.getMessage());
+            reporter.report("Hupe nicht verfügbar (keine Audio-Ausgabe)", e);
         }
         swap(newClip);
     }
@@ -98,9 +108,9 @@ public final class Horn {
                 swap(newClip);
                 return true;
             }
-        } catch (Exception e) {
-            System.err.println("Hupen-Datei „" + file.getName() + "“ nicht ladbar: "
-                    + e.getMessage());
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException
+                 | IllegalArgumentException | SecurityException e) {
+            reporter.report("Hupen-Datei „" + file.getName() + "“ nicht ladbar", e);
             return false;
         }
     }
