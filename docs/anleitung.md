@@ -67,6 +67,8 @@ nötig.
   versehentlich gestartete Zeitstrafe brechen Sie mit einem Klick auf ihre
   Zeile im Kampfgericht ab. Mit **„→ 4 Min“** neben der Zeile verlängern Sie eine
   laufende 2-Minuten-Strafe auf insgesamt 4 Minuten (einmal je Strafe).
+  Die Strafen stehen nach Restzeit sortiert, die kürzeste oben — auch nach einer
+  Verlängerung.
 - Der Spielstand wird laufend gesichert (`~/.spielstandsanzeige/game.properties`).
   Nach einem Absturz oder Neustart fragt die App beim Start, ob das laufende
   Spiel **fortgesetzt** oder verworfen werden soll. Die Uhr steht dann auf der
@@ -80,6 +82,9 @@ nötig.
   `~/.spielstandsanzeige/spielstandsanzeige.log`.
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder
   gestoppt wurde.
+  Stellen Sie die Uhr hinter den Beginn einer laufenden Zeitstrafe zurück, beginnt
+  diese Strafe neu zu laufen (nie mehr als 2 bzw. 4 Minuten Restzeit); stellen Sie
+  die Uhr vor, läuft sie entsprechend ab.
 - Steht es nach dem regulären Spielende unentschieden und muss ein Sieger
   ermittelt werden: Klicken Sie beim Wiederanpfiff auf **„▶ 1. Verlängerung
   starten“** — die Uhr läuft dann einfach weiter (z. B. 60:00 → 70:00), die

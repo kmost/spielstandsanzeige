@@ -1,7 +1,6 @@
 package de.kmost.scoreboard.ui.control;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -922,13 +921,16 @@ public class ControlWindow {
 
         VBox penaltiesBox = new VBox(4);
         penaltiesBox.setAlignment(side == TeamSide.HOME ? Pos.TOP_LEFT : Pos.TOP_RIGHT);
-        state.penalties(side).addListener((ListChangeListener<PenaltyTimer>) change ->
+        state.sortedPenalties(side).addListener((ListChangeListener<PenaltyTimer>) change ->
                 rebuildPenaltyRows(state, side, penaltiesBox));
         rebuildPenaltyRows(state, side, penaltiesBox);
 
         cornerButton.setMinWidth(Region.USE_PREF_SIZE);
         VBox column = new VBox(10, cornerButton, penaltiesBox);
         column.setAlignment(side == TeamSide.HOME ? Pos.TOP_LEFT : Pos.TOP_RIGHT);
+        // Mindestbreite der Knöpfe darf die Zelle nicht aufweiten (sonst ragt „→ 4 Min“ bei
+        // schmalem Fenster über den Rand): zu breiter Inhalt wird stattdessen eingepasst
+        column.setMinWidth(0);
         fitToCellWidth(column, side == TeamSide.HOME ? HPos.LEFT : HPos.RIGHT);
         return column;
     }
@@ -999,8 +1001,7 @@ public class ControlWindow {
 
     private void rebuildPenaltyRows(GameState state, TeamSide side, VBox penaltiesBox) {
         // gleiche Reihenfolge wie auf der Anzeige: älteste Strafe (kürzeste Restzeit) oben
-        penaltiesBox.getChildren().setAll(state.penalties(side).stream()
-                .sorted(Comparator.comparingLong(timer -> timer.remainingMillisProperty().get()))
+        penaltiesBox.getChildren().setAll(state.sortedPenalties(side).stream()
                 .map(timer -> penaltyEntry(state, timer))
                 .toList());
     }

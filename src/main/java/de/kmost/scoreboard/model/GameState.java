@@ -2,9 +2,11 @@ package de.kmost.scoreboard.model;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.LongSupplier;
 
+import javafx.beans.Observable;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyBooleanProperty;
@@ -13,6 +15,7 @@ import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.SortedList;
 
 /**
  * Gesamter Spielzustand: Konfiguration, Uhr, Tore, Zeitstrafen und Team-Timeouts.
@@ -21,6 +24,10 @@ import javafx.collections.ObservableList;
  */
 public class GameState {
 
+    /** Älteste Strafe (früheste Ablaufmarke) zuerst. */
+    private static final Comparator<PenaltyTimer> PENALTY_ORDER =
+            Comparator.comparingLong(timer -> timer.endElapsedMillisProperty().get());
+
     private final GameConfig config;
     private final GameClock clock;
     private final LongSupplier nanoSource;
@@ -28,8 +35,12 @@ public class GameState {
     private final IntegerProperty guestScore = new SimpleIntegerProperty(0);
     private final IntegerProperty homeTimeoutsUsed = new SimpleIntegerProperty(0);
     private final IntegerProperty guestTimeoutsUsed = new SimpleIntegerProperty(0);
-    private final ObservableList<PenaltyTimer> homePenalties = FXCollections.observableArrayList();
-    private final ObservableList<PenaltyTimer> guestPenalties = FXCollections.observableArrayList();
+    // der Extraktor meldet Änderungen der Ablaufmarke (Verlängerung, Zeitkorrektur) als Update,
+    // damit die sortierten Sichten neu ordnen — ohne Änderung bei jedem Tick
+    private final ObservableList<PenaltyTimer> homePenalties = penaltyList();
+    private final ObservableList<PenaltyTimer> guestPenalties = penaltyList();
+    private final SortedList<PenaltyTimer> homePenaltiesSorted = new SortedList<>(homePenalties, PENALTY_ORDER);
+    private final SortedList<PenaltyTimer> guestPenaltiesSorted = new SortedList<>(guestPenalties, PENALTY_ORDER);
     private final ObjectProperty<TeamTimeout> activeTimeout = new SimpleObjectProperty<>();
     private final ObjectProperty<Shootout> shootout = new SimpleObjectProperty<>();
     private final ReadOnlyBooleanWrapper ended = new ReadOnlyBooleanWrapper(false);
@@ -64,6 +75,19 @@ public class GameState {
 
     public ObservableList<PenaltyTimer> penalties(TeamSide side) {
         return side == TeamSide.HOME ? homePenalties : guestPenalties;
+    }
+
+    /**
+     * Die Strafen eines Teams in Anzeigereihenfolge: älteste (kürzeste Restzeit) zuerst.
+     * Ordnet sich bei Verlängerung und Zeitkorrektur neu; schreibgeschützt.
+     */
+    public ObservableList<PenaltyTimer> sortedPenalties(TeamSide side) {
+        return side == TeamSide.HOME ? homePenaltiesSorted : guestPenaltiesSorted;
+    }
+
+    private static ObservableList<PenaltyTimer> penaltyList() {
+        return FXCollections.observableArrayList(
+                timer -> new Observable[] {timer.endElapsedMillisProperty()});
     }
 
     public ObjectProperty<TeamTimeout> activeTimeoutProperty() {

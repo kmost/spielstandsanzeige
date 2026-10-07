@@ -134,6 +134,122 @@ class GameStateTest {
     }
 
     @Test
+    void penaltyRestartsWhenClockIsSetBackBeforeItsStart() {
+        state.clock().start();
+        time.advanceMillis(30_000);
+        state.tick();
+        state.addPenalty(TeamSide.HOME);
+        time.advanceMillis(10_000);
+        state.tick();
+        assertEquals(110_000, penaltyRemaining(TeamSide.HOME));
+
+        state.clock().setElapsed(10_000); // hinter den Start (30 s) zurück
+        state.tick();
+
+        assertEquals(120_000, penaltyRemaining(TeamSide.HOME)); // nie mehr als die Dauer
+        time.advanceMillis(5_000);
+        state.tick();
+        assertEquals(115_000, penaltyRemaining(TeamSide.HOME)); // läuft ab der neuen Zeit
+    }
+
+    @Test
+    void penaltyKeepsRunningDownWhenClockIsSetBackWithinItsRunTime() {
+        state.clock().start();
+        state.addPenalty(TeamSide.HOME);
+        time.advanceMillis(40_000);
+        state.tick();
+        state.clock().setElapsed(20_000); // nach dem Start der Strafe (0 s): keine Verschiebung
+        state.tick();
+        assertEquals(100_000, penaltyRemaining(TeamSide.HOME));
+    }
+
+    @Test
+    void penaltyRunsDownWhenClockIsSetForward() {
+        state.clock().start();
+        time.advanceMillis(10_000);
+        state.tick();
+        state.addPenalty(TeamSide.HOME);
+        state.clock().setElapsed(50_000);
+        state.tick();
+        assertEquals(80_000, penaltyRemaining(TeamSide.HOME));
+    }
+
+    @Test
+    void extendedPenaltyNeverExceedsFourMinutesAfterCorrection() {
+        state.clock().start();
+        time.advanceMillis(30_000);
+        state.tick();
+        state.addPenalty(TeamSide.HOME);
+        state.extendPenalty(state.penalties(TeamSide.HOME).get(0));
+        time.advanceMillis(10_000);
+        state.tick();
+        assertEquals(230_000, penaltyRemaining(TeamSide.HOME));
+
+        state.clock().setElapsed(10_000);
+        state.tick();
+
+        assertEquals(240_000, penaltyRemaining(TeamSide.HOME));
+        assertTrue(state.penalties(TeamSide.HOME).get(0).isExtended());
+    }
+
+    @Test
+    void sortedPenaltiesListOldestFirstAndReorderAfterExtension() {
+        state.clock().start();
+        state.addPenalty(TeamSide.HOME, "1");
+        time.advanceMillis(10_000);
+        state.tick();
+        state.addPenalty(TeamSide.HOME, "2");
+        time.advanceMillis(10_000);
+        state.tick();
+        state.addPenalty(TeamSide.HOME, "3");
+        assertEquals("123", numbersInOrder());
+
+        state.extendPenalty(state.penalties(TeamSide.HOME).get(0)); // Nr. 1 läuft jetzt am längsten
+        assertEquals("231", numbersInOrder());
+    }
+
+    @Test
+    void sortedPenaltiesDoNotChangeOnPlainTicks() {
+        state.clock().start();
+        state.addPenalty(TeamSide.HOME, "1");
+        state.addPenalty(TeamSide.HOME, "2");
+        AtomicInteger changes = new AtomicInteger();
+        state.sortedPenalties(TeamSide.HOME).addListener(
+                (javafx.collections.ListChangeListener<PenaltyTimer>) c -> changes.incrementAndGet());
+        for (int i = 0; i < 5; i++) {
+            time.advanceMillis(1_000);
+            state.tick();
+        }
+        assertEquals(0, changes.get());
+        state.extendPenalty(state.penalties(TeamSide.HOME).get(0));
+        assertEquals(1, changes.get());
+    }
+
+    @Test
+    void snapshotKeepsShiftedPenaltyConsistent() {
+        state.clock().start();
+        time.advanceMillis(30_000);
+        state.tick();
+        state.addPenalty(TeamSide.HOME, "7");
+        state.extendPenalty(state.penalties(TeamSide.HOME).get(0));
+        state.clock().setElapsed(10_000);
+        state.tick();
+
+        GameState restored = GameState.restore(state.snapshot(), time);
+
+        assertEquals(240_000, restored.penalties(TeamSide.HOME).get(0)
+                .remainingMillisProperty().get());
+        assertEquals("7", restored.sortedPenalties(TeamSide.HOME).get(0).playerNumber());
+        assertTrue(restored.penalties(TeamSide.HOME).get(0).isExtended());
+    }
+
+    private String numbersInOrder() {
+        StringBuilder sb = new StringBuilder();
+        state.sortedPenalties(TeamSide.HOME).forEach(t -> sb.append(t.playerNumber()));
+        return sb.toString();
+    }
+
+    @Test
     void penaltyStoresPlayerNumber() {
         state.clock().start();
         state.addPenalty(TeamSide.HOME, " 7 ");

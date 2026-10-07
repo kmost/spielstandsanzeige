@@ -1,7 +1,6 @@
 package de.kmost.scoreboard.ui.display;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -522,7 +521,7 @@ public class DisplayWindow {
         column.getTransforms().add(fit);
         InvalidationListener refit = obs -> fitToWidth(column, fit);
         column.widthProperty().addListener(refit);
-        state.penalties(side).addListener((ListChangeListener<PenaltyTimer>) change ->
+        state.sortedPenalties(side).addListener((ListChangeListener<PenaltyTimer>) change ->
                 rebuildPenaltyLabels(state, side, column, refit));
         rebuildPenaltyLabels(state, side, column, refit);
         return column;
@@ -539,10 +538,8 @@ public class DisplayWindow {
 
     private void rebuildPenaltyLabels(GameState state, TeamSide side, VBox penaltiesBox,
             InvalidationListener refit) {
-        // die älteste Strafe (kürzeste Restzeit) oben — die Reihenfolge bleibt auch
-        // zwischen den Neuaufbauten stabil, weil alle Strafen gleich schnell ablaufen
-        penaltiesBox.getChildren().setAll(state.penalties(side).stream()
-                .sorted(Comparator.comparingLong(timer -> timer.remainingMillisProperty().get()))
+        // die älteste Strafe (kürzeste Restzeit) oben — die Reihenfolge liefert das Model
+        penaltiesBox.getChildren().setAll(state.sortedPenalties(side).stream()
                 .map(timer -> {
                     // festes Format „NN  M:SS“: alle Panels gleich groß, die Zeiten stehen
                     // bündig untereinander — mit oder ohne Spielernummer. Aufgefüllt wird
