@@ -63,7 +63,7 @@ class DisplayWindowTest {
 
     private static List<String> texts(DisplayWindow window, String styleClass) {
         return fx(() -> all(window.scene().getRoot(), Label.class).stream()
-                .filter(l -> l.getStyleClass().contains(styleClass))
+                .filter(l -> l.getStyleClass().contains(styleClass) && shown(l))
                 .map(Label::getText).collect(Collectors.toList()));
     }
 
@@ -456,6 +456,36 @@ class DisplayWindowTest {
         });
         assertFalse(symbols(window, TeamSide.HOME).isEmpty(), "Liste bleibt nach dem Sieger sichtbar");
         assertEquals(List.of("Ende"), texts(window, "phase"));
+    }
+
+    @Test
+    void shootoutListColumnsKeepTheirWidthWhateverIsThrown() {
+        DisplayWindow window = window(1280, 720);
+        GameState state = newState("Heim", "Gast");
+        fx(() -> {
+            stateProperty.set(state);
+            startShootout(state);
+            layout(window.scene());
+        });
+        List<Double> columns = fx(() -> numberXs(window));
+        assertEquals(5, columns.size());
+        // Tor, Fehlwurf (Hand ist breiter/schmaler als der Ball), Tor, Fehlwurf: die Spalten bleiben stehen
+        for (boolean goal : new boolean[] {true, false, true, false, false, true}) {
+            fx(() -> {
+                state.recordShootoutAttempt(goal);
+                layout(window.scene());
+            });
+            List<Double> now = fx(() -> numberXs(window));
+            assertEquals(columns.size(), now.size());
+            for (int i = 0; i < columns.size(); i++) {
+                assertEquals(columns.get(i), now.get(i), 0.01, "Spalte " + (i + 1) + " verschoben");
+            }
+        }
+    }
+
+    private static List<Double> numberXs(DisplayWindow window) {
+        return labels(window, "shootout-number").stream()
+                .map(l -> sceneBounds(l).getMinX()).sorted().toList();
     }
 
     @Test
