@@ -43,6 +43,14 @@ public class PenaltyTimer {
         remainingMillis.set(remainingMillis.get() + baseDurationMillis);
     }
 
+    long startElapsedMillis() {
+        return startElapsedMillis;
+    }
+
+    long baseDurationMillis() {
+        return baseDurationMillis;
+    }
+
     public boolean isExtended() {
         return durationMillis > baseDurationMillis;
     }

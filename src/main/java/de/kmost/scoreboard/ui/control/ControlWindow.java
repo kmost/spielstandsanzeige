@@ -19,6 +19,8 @@ import de.kmost.scoreboard.model.SportProfile;
 import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.model.TeamTimeout;
 import de.kmost.scoreboard.sound.Horn;
+import de.kmost.scoreboard.store.GameAutosave;
+import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.AppIcon;
@@ -42,6 +44,7 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -75,6 +78,8 @@ public class ControlWindow {
 
     private final TeamRepository teamRepository;
     private final ThemeRepository themeRepository;
+    private final GameSnapshotStore snapshotStore;
+    private GameAutosave autosave;
     private ConfigWindow configWindow;
     private final ObservableList<String> knownTeams = FXCollections.observableArrayList();
     private final Map<TeamSide, TeamNamePicker> teamPickers = new EnumMap<>(TeamSide.class);
@@ -90,17 +95,19 @@ public class ControlWindow {
     private String defaultHomeTeam;
 
     public ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
-                         ThemeRepository themeRepository) {
-        this(stage, horn, teamRepository, themeRepository, 940, 700);
+                         ThemeRepository themeRepository, GameSnapshotStore snapshotStore) {
+        this(stage, horn, teamRepository, themeRepository, snapshotStore, 940, 700);
     }
 
     // Größe nur für die Offscreen-Vorschau in Tests wählbar
     ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
-                  ThemeRepository themeRepository, double width, double height) {
+                  ThemeRepository themeRepository, GameSnapshotStore snapshotStore,
+                  double width, double height) {
         this.stage = stage;
         this.horn = horn;
         this.teamRepository = teamRepository;
         this.themeRepository = themeRepository;
+        this.snapshotStore = snapshotStore;
         this.knownTeams.setAll(teamRepository.teamNames());
         this.defaultHomeTeam = teamRepository.defaultHomeTeam();
         this.displayWindow = new DisplayWindow(gameState);
@@ -131,11 +138,45 @@ public class ControlWindow {
         stage.setScene(scene);
         stage.setTitle("Kampfgericht – Spielstandsanzeige");
         AppIcon.apply(stage);
-        stage.setOnCloseRequest(e -> Platform.exit());
+        stage.setOnCloseRequest(e -> {
+            GameState state = gameState.get();
+            if (state != null && isInProgress(state)) {
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Das Spiel ist noch nicht beendet. Wirklich beenden? Der Spielstand wird "
+                                + "gesichert und beim nächsten Start zum Fortsetzen angeboten.",
+                        ButtonType.OK, ButtonType.CANCEL);
+                confirm.setHeaderText(null);
+                if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                    e.consume();
+                    return;
+                }
+                if (autosave != null) {
+                    autosave.saveNow();
+                }
+            }
+            Platform.exit();
+        });
+    }
+
+    /** Ein gestartetes, noch nicht endgültig beendetes Spiel — nur das wird gesichert. */
+    private static boolean isInProgress(GameState state) {
+        return state.clock().phaseProperty().get() != GameClock.Phase.NOT_STARTED
+                && !state.isOver();
     }
 
     public GameState gameState() {
         return gameState.get();
+    }
+
+    /** Takt der App: treibt Uhr, Strafen und Timeouts und sichert das Spiel. */
+    public void tick() {
+        GameState state = gameState.get();
+        if (state != null) {
+            state.tick();
+            if (autosave != null) {
+                autosave.tick();
+            }
+        }
     }
 
     // nur für die Offscreen-Vorschau in Tests: Spielzustand setzen und Szene rendern
@@ -154,6 +195,42 @@ public class ControlWindow {
 
     public void show() {
         stage.show();
+        Platform.runLater(this::offerResume);
+    }
+
+    /** Bietet ein nach Absturz oder Neustart gesichertes, nicht beendetes Spiel zum Fortsetzen an. */
+    private void offerResume() {
+        GameState restored = snapshotStore.load().map(snapshot -> {
+            try {
+                return GameState.restore(snapshot, System::nanoTime);
+            } catch (IllegalArgumentException e) {
+                System.err.println("Gesichertes Spiel unbrauchbar: " + e.getMessage());
+                snapshotStore.quarantine();
+                return null;
+            }
+        }).orElse(null);
+        if (restored == null) {
+            return;
+        }
+        GameClock clock = restored.clock();
+        GameConfig config = restored.config();
+        String clockText = TimeFormatter.formatClock(clock.elapsedMillisProperty().get(),
+                clock.currentPeriodEndMillis(), config.direction());
+        ButtonType resume = new ButtonType("Fortsetzen", ButtonBar.ButtonData.OK_DONE);
+        ButtonType discard = new ButtonType("Verwerfen", ButtonBar.ButtonData.CANCEL_CLOSE);
+        Alert dialog = new Alert(Alert.AlertType.CONFIRMATION,
+                config.homeName() + " " + restored.scoreProperty(TeamSide.HOME).get() + " : "
+                        + restored.scoreProperty(TeamSide.GUEST).get() + " " + config.guestName()
+                        + "\n" + phaseText(restored) + ", " + clockText
+                        + "\n\nDie Uhr steht und wird mit „Fortsetzen“ weitergestartet.",
+                resume, discard);
+        dialog.setTitle("Laufendes Spiel fortsetzen?");
+        dialog.setHeaderText("Es gibt ein nicht beendetes Spiel.");
+        if (dialog.showAndWait().orElse(discard) == resume) {
+            startGame(restored);
+        } else {
+            snapshotStore.delete();
+        }
     }
 
     // --- Setup ---
@@ -313,11 +390,21 @@ public class ControlWindow {
                 overtimeFormatBox.getValue(),
                 Duration.ofMinutes(overtimeMinutesSpinner.getValue()),
                 SportProfile.HANDBALL);
-        GameState state = new GameState(config);
+        snapshotStore.delete(); // die Sicherung des verworfenen Spiels
+        startGame(new GameState(config));
+    }
+
+    /** Übernimmt ein neues oder wiederhergestelltes Spiel: Hupe anschließen, Sicherung starten. */
+    private void startGame(GameState state) {
         state.clock().setOnPeriodEnd(horn::play);
         state.setOnTimeoutEnd(horn::play);
         state.setOnShootoutEnd(horn::play);
+        if (autosave != null) {
+            autosave.dispose();
+        }
+        autosave = new GameAutosave(state, snapshotStore);
         gameState.set(state);
+        autosave.saveNow(); // wiederhergestelltes Spiel sofort wieder sichern
     }
 
     private static String orDefault(String text, String fallback) {

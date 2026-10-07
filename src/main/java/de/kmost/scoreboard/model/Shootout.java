@@ -30,6 +30,10 @@ public class Shootout {
         update();
     }
 
+    public TeamSide startingTeam() {
+        return startingTeam;
+    }
+
     /** Verbucht den nächsten Wurf für das Team, das laut Reihenfolge dran ist. */
     public void record(boolean goal) {
         if (winner.get() != null) {

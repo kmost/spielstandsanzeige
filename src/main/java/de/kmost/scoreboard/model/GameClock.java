@@ -131,6 +131,36 @@ public class GameClock {
         }
     }
 
+    /**
+     * Stellt die Uhr aus einem gesicherten Zustand wieder her. Eine zum Sicherungszeitpunkt
+     * laufende Uhr kommt pausiert zurück: Die Ausfallzeit zählt nicht, das Kampfgericht
+     * setzt mit „Fortsetzen“ fort. Unstimmige Werte werden mit einer Exception abgelehnt.
+     */
+    void restore(Phase restoredPhase, int restoredPeriod, int restoredOvertimes, long elapsed) {
+        if (restoredPhase == null || restoredOvertimes < 0 || restoredPeriod < 1
+                || restoredPeriod > config.regulationPeriodCount()
+                        + restoredOvertimes * config.overtimeFormat().periodCount()) {
+            throw new IllegalArgumentException("Ungültiger Uhrzustand: Periode " + restoredPeriod
+                    + ", Verlängerungen " + restoredOvertimes);
+        }
+        if (elapsed < periodStartMillis(restoredPeriod) || elapsed > periodEndMillis(restoredPeriod)) {
+            throw new IllegalArgumentException("Spielzeit " + elapsed
+                    + " liegt außerhalb der Periode " + restoredPeriod);
+        }
+        overtimes = restoredOvertimes;
+        period.set(restoredPeriod);
+        accumulatedMillis = elapsed;
+        startNanos = nanoSource.getAsLong();
+        elapsedMillis.set(elapsed);
+        running.set(false);
+        phase.set(restoredPhase == Phase.RUNNING ? Phase.PAUSED : restoredPhase);
+    }
+
+    /** Anzahl der gestarteten Verlängerungen. */
+    int overtimeCount() {
+        return overtimes;
+    }
+
     public void tick() {
         if (!running.get()) {
             return;
@@ -164,8 +194,12 @@ public class GameClock {
     }
 
     public long currentPeriodEndMillis() {
-        return periodStartMillis(period.get())
-                + (config.isOvertimePeriod(period.get()) ? config.overtimeMillis() : config.periodMillis());
+        return periodEndMillis(period.get());
+    }
+
+    private long periodEndMillis(int period) {
+        return periodStartMillis(period)
+                + (config.isOvertimePeriod(period) ? config.overtimeMillis() : config.periodMillis());
     }
 
     private long periodStartMillis(int period) {
