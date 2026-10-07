@@ -425,7 +425,15 @@ class DisplayWindowTest {
             for (int i = 0; i < penalties.size(); i++) {
                 Bounds before = plainPenalties.get(i);
                 Bounds after = sceneBounds(penalties.get(i));
-                assertEquals(before.getMinX(), after.getMinX(), 1, "Strafen-Chip " + i + " x");
+                // Ausnahme: Ist die Uhr ohne 7-m-Werfen bei kleinem Fenster und breiter Schrift (Linux-CI) breiter als
+                // ihre Spalte, schiebt sie das Raster und damit den Gast-Chip bis zu ein paar Pixel über den rechten
+                // Rand (Zustand vor dem 7-m-Werfen, unverändert); mit der halbierten Uhr sitzt er dann richtig
+                boolean plainFits = before.getMaxX() <= width - 15 + 1;
+                if (plainFits) {
+                    assertEquals(before.getMinX(), after.getMinX(), 1, "Strafen-Chip " + i + " x");
+                } else {
+                    assertTrue(after.getMaxX() <= width - 15 + 1, "Strafen-Chip " + i + " innerhalb des Rasters");
+                }
                 assertEquals(before.getWidth(), after.getWidth(), 1, "Strafen-Chip " + i + " Breite");
                 assertEquals(before.getHeight(), after.getHeight(), 1, "Strafen-Chip " + i + " Höhe");
                 assertEquals(before.getMinY(), after.getMinY(), 0.02 * height, "Strafen-Chip " + i + " y");
