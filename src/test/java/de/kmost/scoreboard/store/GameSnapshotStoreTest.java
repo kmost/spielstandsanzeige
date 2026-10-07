@@ -188,4 +188,39 @@ class GameSnapshotStoreTest {
         assertTrue(Files.exists(tempDir.resolve("game.properties.defekt")));
         store.quarantine(); // ohne Datei: kein Fehler
     }
+
+    private GameSnapshot endedDrawSnapshot() {
+        AtomicLong nanos = new AtomicLong();
+        GameConfig config = new GameConfig("Heim", "Gast", GameMode.TWO_HALVES,
+                Duration.ofMinutes(1), ClockDirection.UP, OvertimeFormat.TWO_HALVES,
+                Duration.ofSeconds(30), SportProfile.HANDBALL);
+        GameState state = new GameState(config, nanos::get);
+        state.clock().start();
+        nanos.addAndGet(60_000_000_000L);
+        state.tick();
+        state.clock().startNextPeriod();
+        nanos.addAndGet(60_000_000_000L);
+        state.tick();
+        state.endGame();
+        return state.snapshot();
+    }
+
+    @Test
+    void endedFlagSurvivesTheRoundTrip() {
+        GameSnapshotStore store = new GameSnapshotStore(tempDir);
+        GameSnapshot ended = endedDrawSnapshot();
+        assertTrue(ended.ended());
+        store.save(ended);
+        assertEquals(ended, store.load().orElseThrow());
+    }
+
+    @Test
+    void oldFilesWithoutEndedFlagStillLoadAsNotEnded() throws IOException {
+        GameSnapshotStore store = new GameSnapshotStore(tempDir);
+        store.save(richSnapshot());
+        Path file = tempDir.resolve("game.properties");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertFalse(content.contains("\nended="));
+        assertFalse(store.load().orElseThrow().ended());
+    }
 }

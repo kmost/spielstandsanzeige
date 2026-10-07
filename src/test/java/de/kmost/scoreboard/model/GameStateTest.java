@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class GameStateTest {
 
@@ -287,5 +288,85 @@ class GameStateTest {
 
     private long penaltyRemaining(TeamSide side) {
         return state.penalties(side).get(0).remainingMillisProperty().get();
+    }
+
+    /** Spielt beide Halbzeiten durch: steht es danach unentschieden, ist die Uhr auf FINISHED. */
+    private void playRegularTime() {
+        state.clock().start();
+        time.advanceMillis(60_000);
+        state.tick();
+        state.clock().startNextPeriod();
+        time.advanceMillis(60_000);
+        state.tick();
+    }
+
+    @Test
+    void drawCanBeEndedWithoutOvertimeOrShootout() {
+        playRegularTime();
+        assertTrue(state.canEndGame());
+        assertFalse(state.isOver()); // Gleichstand: das Spiel ist noch offen
+
+        state.endGame();
+
+        assertTrue(state.endedProperty().get());
+        assertTrue(state.isOver());
+        assertFalse(state.canEndGame());
+    }
+
+    @Test
+    void endedGameBlocksOvertimeAndShootout() {
+        playRegularTime();
+        state.endGame();
+
+        assertFalse(state.clock().canStartOvertime());
+        state.clock().startOvertime();
+        assertEquals(GameClock.Phase.FINISHED, state.clock().phaseProperty().get());
+        assertEquals(2, state.clock().periodProperty().get());
+
+        state.startShootout(TeamSide.HOME);
+        assertNull(state.shootoutProperty().get());
+    }
+
+    @Test
+    void endGameIsOnlyPossibleForADrawAtRegularEnd() {
+        // läuft noch
+        state.clock().start();
+        state.endGame();
+        assertFalse(state.endedProperty().get());
+
+        // entschieden
+        state.addGoal(TeamSide.HOME);
+        time.advanceMillis(60_000);
+        state.tick();
+        state.clock().startNextPeriod();
+        time.advanceMillis(60_000);
+        state.tick();
+        assertFalse(state.canEndGame());
+        state.endGame();
+        assertFalse(state.endedProperty().get());
+    }
+
+    @Test
+    void endGameIsRefusedAfterShootoutStartedOrAbort() {
+        playRegularTime();
+        state.startShootout(TeamSide.GUEST);
+        assertFalse(state.canEndGame());
+        state.endGame();
+        assertFalse(state.endedProperty().get());
+
+        // Spielabbruch (Uhr vor dem Abschnittsende): nichts mehr zu beenden
+        GameState aborted = new GameState(new GameConfig("Heim", "Gast", GameMode.TWO_HALVES,
+                Duration.ofMinutes(1), ClockDirection.UP, SportProfile.HANDBALL), time);
+        aborted.clock().start();
+        aborted.abortGame();
+        assertFalse(aborted.canEndGame());
+    }
+
+    @Test
+    void endGameTwiceChangesNothing() {
+        playRegularTime();
+        state.endGame();
+        state.endGame();
+        assertTrue(state.isOver());
     }
 }

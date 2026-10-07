@@ -370,4 +370,55 @@ class GameSnapshotTest {
                 s.homeTimeoutsUsed(), s.guestTimeoutsUsed(), penalties,
                 s.shootoutStart(), s.shootoutAttempts());
     }
+
+    private void playRegularTime() {
+        state.clock().start();
+        time.advanceMillis(60_000);
+        state.tick();
+        state.clock().startNextPeriod();
+        time.advanceMillis(60_000);
+        state.tick();
+    }
+
+    @Test
+    void endedGameIsRestoredAsOver() {
+        playRegularTime();
+        state.endGame();
+
+        GameSnapshot snapshot = state.snapshot();
+        assertTrue(snapshot.ended());
+        GameState restored = GameState.restore(snapshot, time);
+
+        assertTrue(restored.endedProperty().get());
+        assertTrue(restored.isOver());
+        assertFalse(restored.clock().canStartOvertime());
+        restored.clock().startOvertime();
+        assertEquals(GameClock.Phase.FINISHED, restored.clock().phaseProperty().get());
+        assertEquals(snapshot, restored.snapshot());
+    }
+
+    @Test
+    void snapshotOfOpenDrawIsNotEnded() {
+        playRegularTime();
+        GameSnapshot snapshot = state.snapshot();
+        assertFalse(snapshot.ended());
+        GameState restored = GameState.restore(snapshot, time);
+        assertFalse(restored.isOver());
+        assertTrue(restored.canEndGame());
+    }
+
+    @Test
+    void endedSnapshotThatDoesNotMatchTheGameIsRejected() {
+        // läuft noch, aber als beendet markiert
+        state.clock().start();
+        GameSnapshot running = state.snapshot();
+        GameSnapshot wrong = new GameSnapshot(running.homeName(), running.guestName(),
+                running.mode(), running.periodMillis(), running.direction(),
+                running.overtimeFormat(), running.overtimeMillis(), running.sport(),
+                running.phase(), running.period(), running.overtimes(), running.elapsedMillis(),
+                running.homeScore(), running.guestScore(), running.homeTimeoutsUsed(),
+                running.guestTimeoutsUsed(), running.penalties(), running.shootoutStart(),
+                running.shootoutAttempts(), true);
+        assertThrows(IllegalArgumentException.class, () -> GameState.restore(wrong, time));
+    }
 }

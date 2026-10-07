@@ -28,6 +28,8 @@ public class GameClock {
     private Runnable onPeriodEnd;
     /** Anzahl der gestarteten Verlängerungen; jede verlängert den Spielplan um ihre Abschnitte. */
     private int overtimes;
+    /** Spiel nach Gleichstand ohne Verlängerung beendet: keine Verlängerung mehr möglich. */
+    private boolean closed;
 
     private final ReadOnlyLongWrapper elapsedMillis = new ReadOnlyLongWrapper(0);
     private final ReadOnlyIntegerWrapper period = new ReadOnlyIntegerWrapper(1);
@@ -92,10 +94,19 @@ public class GameClock {
         phase.set(Phase.RUNNING);
     }
 
-    /** Eine Verlängerung ist möglich, wenn das Spiel sein Abschnittsende regulär erreicht hat. */
+    /**
+     * Eine Verlängerung ist möglich, wenn das Spiel sein Abschnittsende regulär erreicht hat
+     * und nicht ausdrücklich beendet wurde ({@link #close()}).
+     */
     public boolean canStartOvertime() {
-        return phase.get() == Phase.FINISHED
+        return !closed
+                && phase.get() == Phase.FINISHED
                 && elapsedMillis.get() == currentPeriodEndMillis();
+    }
+
+    /** Schließt das Spiel endgültig: Es gibt danach keine Verlängerung mehr. */
+    void close() {
+        closed = true;
     }
 
     /** Beendet das Spiel sofort (Spielabbruch): Die Uhr stoppt endgültig bei der aktuellen Zeit. */

@@ -7,6 +7,8 @@ import java.util.function.LongSupplier;
 
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
@@ -30,6 +32,7 @@ public class GameState {
     private final ObservableList<PenaltyTimer> guestPenalties = FXCollections.observableArrayList();
     private final ObjectProperty<TeamTimeout> activeTimeout = new SimpleObjectProperty<>();
     private final ObjectProperty<Shootout> shootout = new SimpleObjectProperty<>();
+    private final ReadOnlyBooleanWrapper ended = new ReadOnlyBooleanWrapper(false);
     private Runnable onTimeoutEnd;
     private Runnable onShootoutEnd;
 
@@ -175,6 +178,38 @@ public class GameState {
         clock.finish();
     }
 
+    /**
+     * Ist das Spiel nach Gleichstand beendbar? Nur nach regulärem Spielende bei Gleichstand,
+     * solange weder Verlängerung noch 7-m-Werfen gestartet wurden.
+     */
+    public boolean canEndGame() {
+        return !ended.get()
+                && shootout.get() == null
+                && clock.canStartOvertime()
+                && homeScore.get() == guestScore.get();
+    }
+
+    /**
+     * Beendet das Spiel bei Gleichstand ausdrücklich, ohne Verlängerung und ohne 7-m-Werfen.
+     * Danach ist es vorbei ({@link #isOver()}); Verlängerung und 7-m-Werfen sind gesperrt.
+     */
+    public void endGame() {
+        if (!canEndGame()) {
+            return;
+        }
+        markEnded();
+    }
+
+    private void markEnded() {
+        clock.close();
+        ended.set(true);
+    }
+
+    /** {@code true}, sobald das Spiel nach Gleichstand ausdrücklich beendet wurde. */
+    public ReadOnlyBooleanProperty endedProperty() {
+        return ended.getReadOnlyProperty();
+    }
+
     public void setOnTimeoutEnd(Runnable onTimeoutEnd) {
         this.onTimeoutEnd = onTimeoutEnd;
     }
@@ -183,9 +218,13 @@ public class GameState {
      * Das Spiel ist endgültig vorbei: Abschnittsende erreicht (oder abgebrochen) und weder
      * Verlängerung noch 7-m-Werfen stehen noch aus. Bei Gleichstand nach dem regulären
      * Spielende bleibt das Spiel offen, denn das Kampfgericht kann noch verlängern oder werfen
-     * lassen; ein 7-m-Werfen ist erst mit seinem Sieger vorbei.
+     * lassen — es sei denn, es wurde mit {@link #endGame()} ausdrücklich beendet. Ein
+     * 7-m-Werfen ist erst mit seinem Sieger vorbei.
      */
     public boolean isOver() {
+        if (ended.get()) {
+            return true;
+        }
         Shootout current = shootout.get();
         if (current != null) {
             return current.winnerProperty().get() != null;
@@ -213,7 +252,8 @@ public class GameState {
                 homeTimeoutsUsed.get(), guestTimeoutsUsed.get(),
                 List.copyOf(penaltySnapshots),
                 current == null ? null : current.startingTeam(),
-                current == null ? List.of() : List.copyOf(current.attempts()));
+                current == null ? List.of() : List.copyOf(current.attempts()),
+                ended.get());
     }
 
     /**
@@ -269,6 +309,13 @@ public class GameState {
             state.shootout.set(restored);
         } else if (!snapshot.shootoutAttempts().isEmpty()) {
             throw new IllegalArgumentException("Würfe ohne 7-m-Werfen im Spiel-Abbild");
+        }
+        if (snapshot.ended()) {
+            if (state.shootout.get() != null || !state.clock.canStartOvertime()
+                    || state.homeScore.get() != state.guestScore.get()) {
+                throw new IllegalArgumentException("Beendetes Spiel passt nicht zum Spielstand");
+            }
+            state.markEnded();
         }
         return state;
     }
