@@ -91,12 +91,26 @@ final class DisplayLayout {
     /** Höchstbreite eines Teamnamens als Anteil der Fensterbreite. */
     static final double TEAM_NAME_MAX_WIDTH_SHARE = 0.40;
 
-    /** Abstand zwischen Teamname, Timeout-Punkten und 7-m-Zeile in px. */
+    /** Abstand zwischen Teamname und Timeout-Punkten in px. */
     static final double NAME_CELL_SPACING = 4;
 
     /** Abstand zwischen den untereinander stehenden Strafen-Chips in px. */
     static final double PENALTY_COLUMN_SPACING = 10;
 
-    /** So viele 7-m-Würfe je Team zeigt die Anzeige; ältere werden mit „…“ verdrängt. */
-    static final int SHOOTOUT_VISIBLE_ATTEMPTS = 7;
+    // --- 7-m-Werfen: Mittelspalte der Uhr-Zeile ---
+
+    /**
+     * Anteil der Mittelspalten-Höhe, den das Uhr-Panel (Uhr + Timeout-Chip) beim 7-m-Werfen
+     * behält: Es wird halb so hoch, die Uhr-Schrift schrumpft im selben Verhältnis. Der Rest
+     * gehört der Wurf-Liste. Die Strafen-Spalten außen behalten die volle Zeilenhöhe.
+     */
+    static final double SHOOTOUT_CLOCK_SHARE = 0.5;
+
+    /**
+     * Schriftgröße (em der Basis) der Wurf-Liste. Die Liste hat drei Zeilen (Rundennummern 0.8 em
+     * der Listenschrift, Heim, Gast) und füllt damit etwa die untere Hälfte der Zeile
+     * ({@code (1 − SHOOTOUT_CLOCK_SHARE) · ROW_CLOCK / BASE_FONT_HEIGHT_SHARE ≈ 3 em}); was nicht
+     * passt, wird in {@link FitBox} eingepasst.
+     */
+    static final double SHOOTOUT_TABLE_EM = 0.9;
 }

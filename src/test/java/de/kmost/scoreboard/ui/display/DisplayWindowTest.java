@@ -20,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import de.kmost.scoreboard.model.ClockDirection;
+import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameConfig;
 import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
@@ -292,6 +293,218 @@ class DisplayWindowTest {
                             "Phasentext ragt aus seiner Spalte: " + b + " / " + label.getText());
                 }
             }
+        });
+    }
+
+    // --- 7-m-Werfen: Wurf-Liste in der Mittelspalte ---
+
+    /** Spielt das reguläre Ende durch (Unentschieden) und startet das 7-m-Werfen; Heim beginnt. */
+    private static void startShootout(GameState state) {
+        state.clock().start();
+        for (int period = 1; period <= state.config().mode().periodCount(); period++) {
+            state.clock().setElapsed((long) period * state.config().periodMillis());
+            state.clock().tick();
+            if (state.clock().phaseProperty().get() == GameClock.Phase.HALF_TIME) {
+                state.clock().startNextPeriod();
+            }
+        }
+        state.startShootout(TeamSide.HOME);
+    }
+
+    private static List<Label> labels(DisplayWindow window, String styleClass) {
+        return all(window.scene().getRoot(), Label.class).stream()
+                .filter(l -> l.getStyleClass().contains(styleClass) && shown(l)).toList();
+    }
+
+    /** Umschließende Fläche aller Labels dieser Klasse. */
+    private static Bounds union(List<Label> labels) {
+        double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+        for (Label label : labels) {
+            Bounds b = sceneBounds(label);
+            minX = Math.min(minX, b.getMinX());
+            minY = Math.min(minY, b.getMinY());
+            maxX = Math.max(maxX, b.getMaxX());
+            maxY = Math.max(maxY, b.getMaxY());
+        }
+        return new javafx.geometry.BoundingBox(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    private static List<Label> listLabels(DisplayWindow window) {
+        List<Label> all = new java.util.ArrayList<>(labels(window, "shootout-number"));
+        all.addAll(labels(window, "shootout-team"));
+        all.addAll(labels(window, "shootout-symbol"));
+        return all;
+    }
+
+    private static List<String> symbols(DisplayWindow window, TeamSide side) {
+        // Symbole stehen zeilenweise: Heim-Zeile oberhalb der Gast-Zeile
+        List<Label> symbols = labels(window, "shootout-symbol");
+        if (symbols.isEmpty()) {
+            return List.of();
+        }
+        double middle = union(labels(window, "shootout-team")).getCenterY();
+        return symbols.stream()
+                .filter(l -> (sceneBounds(l).getCenterY() < middle) == (side == TeamSide.HOME))
+                .sorted(java.util.Comparator.comparingDouble(l -> sceneBounds(l).getMinX()))
+                .map(Label::getText).toList();
+    }
+
+    @ParameterizedTest(name = "{0}×{1}")
+    @CsvSource({"1280,720", "1920,1080", "1024,768", "640,480"})
+    void shootoutListSitsBelowTheHalvedClockInTheCenterColumn(double width, double height) {
+        // Ausgangswerte ohne 7-m-Werfen: Uhr und Strafen
+        DisplayWindow plain = window(width, height);
+        GameState plainState = newState("HSG Tarp-Wanderup II", "HSG Tarp-Wanderup III");
+        Bounds plainClock = fx(() -> {
+            stateProperty.set(plainState);
+            plainState.clock().start();
+            plainState.addPenalty(TeamSide.HOME, "7");
+            plainState.addPenalty(TeamSide.HOME, null);
+            plainState.addPenalty(TeamSide.GUEST, "13");
+            layout(plain.scene());
+            return union(labels(plain, "clock"));
+        });
+        List<Bounds> plainPenalties = fx(() -> labels(plain, "penalty").stream()
+                .map(l -> sceneBounds(l)).toList());
+        assertTrue(texts(plain, "shootout-team").isEmpty(), "ohne 7-m-Werfen keine Liste");
+
+        ObjectProperty<GameState> property = new SimpleObjectProperty<>();
+        DisplayWindow window = fx(() -> new DisplayWindow(property, width, height));
+        GameState state = newState("HSG Tarp-Wanderup II", "HSG Tarp-Wanderup III");
+        fx(() -> {
+            property.set(state);
+            startShootout(state);
+            state.addPenalty(TeamSide.HOME, "7");
+            state.addPenalty(TeamSide.HOME, null);
+            state.addPenalty(TeamSide.GUEST, "13");
+            state.recordShootoutAttempt(true);
+            state.recordShootoutAttempt(false);
+            state.recordShootoutAttempt(true);
+            layout(window.scene());
+
+            Bounds clock = union(labels(window, "clock"));
+            Bounds list = union(listLabels(window));
+            // das Uhr-Panel ist (ungefähr) halb so hoch wie ohne 7-m-Werfen
+            assertEquals(0.5, clock.getHeight() / plainClock.getHeight(), 0.1, "Uhr halbiert");
+            // darunter liegt die Liste, ohne die Uhr zu berühren
+            assertTrue(list.getMinY() >= clock.getMaxY() - 1,
+                    "Liste beginnt unter der Uhr: Liste " + list + " Uhr " + clock);
+            // und sie bleibt in der 50-%-Mittelspalte
+            double inner = width - 30;
+            assertTrue(list.getMinX() >= 15 + 0.25 * inner - 1 && list.getMaxX() <= 15 + 0.75 * inner + 1,
+                    "Liste liegt in der Mittelspalte: " + list);
+            // und endet vor der Torzeile
+            double scoreTop = labels(window, "score").stream().mapToDouble(l -> sceneBounds(l).getMinY())
+                    .min().orElseThrow();
+            assertTrue(list.getMaxY() <= scoreTop + 1, "Liste endet vor der Torzeile: " + list);
+
+            // die Strafen-Spalten behalten Platz und Position
+            List<Label> penalties = labels(window, "penalty");
+            assertEquals(plainPenalties.size(), penalties.size());
+            for (int i = 0; i < penalties.size(); i++) {
+                Bounds before = plainPenalties.get(i);
+                Bounds after = sceneBounds(penalties.get(i));
+                assertEquals(before.getMinX(), after.getMinX(), 1, "Strafen-Chip " + i + " x");
+                assertEquals(before.getMinY(), after.getMinY(), 1, "Strafen-Chip " + i + " y");
+            }
+        });
+    }
+
+    @Test
+    void shootoutListFollowsEveryThrowAndUndoAndStaysAfterTheWinner() {
+        DisplayWindow window = window(1280, 720);
+        GameState state = newState("Heim", "Gast");
+        fx(() -> {
+            stateProperty.set(state);
+            layout(window.scene());
+        });
+        assertTrue(listLabels(window).isEmpty(), "vor dem 7-m-Werfen keine Liste");
+
+        fx(() -> {
+            startShootout(state);
+            layout(window.scene());
+        });
+        assertEquals(List.of("Heim", "Gast"), texts(window, "shootout-team"));
+        assertTrue(symbols(window, TeamSide.HOME).isEmpty());
+
+        fx(() -> {
+            state.recordShootoutAttempt(true);  // Heim
+            state.recordShootoutAttempt(false); // Gast
+            state.recordShootoutAttempt(false); // Heim
+            layout(window.scene());
+        });
+        assertEquals(List.of("●", "○"), symbols(window, TeamSide.HOME));
+        assertEquals(List.of("○"), symbols(window, TeamSide.GUEST));
+        assertEquals(List.of("1", "2"), texts(window, "shootout-number"));
+
+        fx(() -> {
+            state.undoShootoutAttempt();
+            layout(window.scene());
+        });
+        assertEquals(List.of("●"), symbols(window, TeamSide.HOME));
+        assertEquals(List.of("○"), symbols(window, TeamSide.GUEST));
+
+        // Heim trifft immer, Gast nie: irgendwann steht der Sieger fest
+        fx(() -> {
+            while (state.shootoutProperty().get().winnerProperty().get() == null) {
+                state.recordShootoutAttempt(
+                        state.shootoutProperty().get().nextThrowerProperty().get() == TeamSide.HOME);
+            }
+            layout(window.scene());
+        });
+        assertFalse(symbols(window, TeamSide.HOME).isEmpty(), "Liste bleibt nach dem Sieger sichtbar");
+        assertEquals(List.of("Ende"), texts(window, "phase"));
+    }
+
+    @Test
+    void shootoutListDropsOldestRoundsWithEllipsisAfterFifteenRounds() {
+        DisplayWindow window = window(1280, 720);
+        GameState state = newState("Heim", "Gast");
+        fx(() -> {
+            stateProperty.set(state);
+            startShootout(state);
+            // 18 unentschiedene Wurf-Paare (Sudden Death): beide treffen immer
+            for (int i = 0; i < 36; i++) {
+                state.recordShootoutAttempt(true);
+            }
+            layout(window.scene());
+        });
+        List<String> numbers = texts(window, "shootout-number");
+        assertEquals(15, numbers.size());
+        assertEquals("4", numbers.get(0));
+        assertEquals("18", numbers.get(14));
+        assertEquals(2, texts(window, "shootout-symbol").stream().filter("…"::equals).count(),
+                "je Team eine Auslassung für die verdrängten Runden");
+        assertEquals(15, symbols(window, TeamSide.HOME).stream().filter("●"::equals).count());
+    }
+
+    @ParameterizedTest(name = "{0}×{1}")
+    @CsvSource({"1280,720", "1920,1080", "1024,768", "640,480"})
+    void everyLabelStaysInsideTheWindowDuringALongShootout(double width, double height) {
+        DisplayWindow window = window(width, height);
+        GameState state = newState("HSG Tarp-Wanderup II", "HSG Tarp-Wanderup III");
+        fx(() -> {
+            window.headerBannerProperty().set(text("Herzlich Willkommen bei der HSG Tarp-Wanderup!"));
+            window.footerBannerProperty().set(text("www.hsg-tarp-wanderup.de"));
+            stateProperty.set(state);
+            startShootout(state);
+            for (int i = 0; i < 36; i++) {
+                state.recordShootoutAttempt(true);
+            }
+            layout(window.scene());
+            for (Label label : all(window.scene().getRoot(), Label.class)) {
+                if (!shown(label) || label.getText() == null || label.getText().isEmpty()) {
+                    continue;
+                }
+                Bounds b = sceneBounds(label);
+                assertTrue(b.getMinX() >= -1 && b.getMaxX() <= width + 1
+                                && b.getMinY() >= -1 && b.getMaxY() <= height + 1,
+                        "Label „" + label.getText() + "“ liegt außerhalb: " + b);
+            }
+            Bounds list = union(listLabels(window));
+            double inner = width - 30;
+            assertTrue(list.getMinX() >= 15 + 0.25 * inner - 1 && list.getMaxX() <= 15 + 0.75 * inner + 1,
+                    "auch die längste Liste bleibt in der Mittelspalte: " + list);
         });
     }
 }
