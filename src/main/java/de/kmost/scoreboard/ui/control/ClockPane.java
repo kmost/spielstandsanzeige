@@ -40,7 +40,7 @@ final class ClockPane {
         clockLabel.setMinWidth(Region.USE_PREF_SIZE);
         HBox clockLine = new HBox(clockLabel);
         clockLine.setAlignment(Pos.CENTER);
-        ControlLayout.fitToCellWidth(clockLine, HPos.LEFT);
+        ControlLayout.fitToCellWidth(clockLine, HPos.CENTER);
 
         // per Listener statt Binding aktualisiert, weil der Text auch vom Sieger
         // eines erst später gestarteten 7-m-Werfens abhängt
@@ -129,7 +129,7 @@ final class ClockPane {
         // fitToCellWidth eingepasst — sonst ragt sie in die Nachbarspalte, deren Fläche die
         // Klicks auf die rechten Knöpfe abfängt
         clockButtons.setMinWidth(0);
-        ControlLayout.fitToCellWidth(clockButtons, HPos.LEFT);
+        ControlLayout.fitToCellWidth(clockButtons, HPos.CENTER);
 
         box = new VBox(6, clockLine, phaseLabel, clockButtons, new TimeoutBar(state).node());
         // mittig in der Raster-Zeile (wie die Uhr auf der Anzeige), damit bei

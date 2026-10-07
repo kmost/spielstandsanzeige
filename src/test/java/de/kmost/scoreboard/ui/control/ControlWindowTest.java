@@ -23,6 +23,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.kmost.scoreboard.diagnostics.ProblemReporter;
@@ -298,6 +300,59 @@ class ControlWindowTest {
         }
     }
 
+    @ParameterizedTest(name = "zweite Halbzeit: {0}")
+    @ValueSource(booleans = {false, true})
+    void penaltyButtonsStayClickableAtAllWindowWidths(boolean secondHalf) {
+        for (double[] size : new double[][] {{560, 700}, {640, 700}, {760, 700}, {940, 700}, {1200, 700},
+                {940, 600}, {940, 560}, {760, 600}, {760, 560}}) {
+            double width = size[0];
+            control = newWindow(width, size[1]);
+            GameState state = createGame();
+            click("▶ Start");
+            if (secondHalf) {
+                onFx(() -> {
+                    GameClock clock = state.clock();
+                    clock.setElapsed(state.config().periodMillis());
+                    clock.tick();
+                    clock.startNextPeriod();
+                });
+            }
+            onFx(() -> {
+                state.addPenalty(TeamSide.HOME, "7");
+                state.addPenalty(TeamSide.HOME, null);
+                state.addPenalty(TeamSide.HOME, "12");
+                state.addPenalty(TeamSide.GUEST, "13");
+                state.addPenalty(TeamSide.GUEST, null);
+                state.extendPenalty(state.penalties(TeamSide.HOME).get(0));
+            });
+            fx(() -> {
+                for (Button button : all(root(), Button.class)) {
+                    String text = button.getText();
+                    if (text != null && (text.startsWith("→ 4 Min") || text.startsWith("⏱")) && shown(button)) {
+                        assertTrue(topmostAtCenterIsPartOf(button),
+                                "„" + text.strip() + "“ wird bei " + width + "×" + size[1] + " überdeckt: " + hitsAtCenter(button));
+                    }
+                }
+                return null;
+            });
+        }
+    }
+
+    private static String hitsAtCenter(Button button) {
+        javafx.geometry.Bounds bounds = button.localToScene(button.getBoundsInLocal());
+        java.util.List<javafx.scene.Node> hits = new java.util.ArrayList<>();
+        collectHits(button.getScene().getRoot(), bounds.getCenterX(), bounds.getCenterY(), hits);
+        StringBuilder text = new StringBuilder();
+        for (javafx.scene.Node n : hits) {
+            javafx.geometry.Bounds b = n.localToScene(n.getLayoutBounds());
+            text.append(n.getClass().getSimpleName())
+                    .append(n instanceof Button bt ? "{" + bt.getText().strip() + "}" : "")
+                    .append('[').append((int) b.getMinX()).append("..").append((int) b.getMaxX())
+                    .append("/").append((int) b.getMinY()).append("..").append((int) b.getMaxY()).append("] ");
+        }
+        return text.toString();
+    }
+
     /** Liegt über der Mitte des Knopfs ein anderes (später gezeichnetes) Element, das Klicks abfängt? */
     private static boolean topmostAtCenterIsPartOf(Button button) {
         javafx.geometry.Bounds bounds = button.localToScene(button.getBoundsInLocal());
@@ -316,7 +371,8 @@ class ControlWindowTest {
         if (!node.isVisible() || node.isMouseTransparent()) {
             return;
         }
-        if (node.localToScene(node.getBoundsInLocal()).contains(x, y)) {
+        // echtes Picking nutzt die Layout-Fläche eines Containers; die Kinder werden einzeln geprüft
+        if (node.localToScene(node.getLayoutBounds()).contains(x, y)) {
             out.add(node);
         }
         if (node instanceof javafx.scene.Parent parent) {
