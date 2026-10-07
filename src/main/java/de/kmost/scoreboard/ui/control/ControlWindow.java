@@ -406,7 +406,7 @@ public class ControlWindow {
 
     private void createGame() {
         GameState current = gameState.get();
-        if (current != null && current.clock().phaseProperty().get() != GameClock.Phase.FINISHED) {
+        if (current != null && !current.isOver()) {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                     "Das aktuelle Spiel wird verworfen. Neues Spiel anlegen?",
                     ButtonType.OK, ButtonType.CANCEL);
@@ -661,7 +661,8 @@ public class ControlWindow {
                 () -> state.shootoutProperty().get() != null
                         || (clock.phaseProperty().get() != GameClock.Phase.HALF_TIME
                             && !clock.canStartOvertime()),
-                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty()));
+                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty(),
+                state.endedProperty()));
         nextPeriodButton.setOnAction(e -> {
             if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
                 clock.startNextPeriod();
@@ -681,14 +682,41 @@ public class ControlWindow {
         shootoutButton.getStyleClass().add("big-button");
         shootoutButton.disableProperty().bind(Bindings.createBooleanBinding(
                 () -> state.shootoutProperty().get() != null || !clock.canStartOvertime(),
-                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty()));
+                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty(),
+                state.endedProperty()));
         shootoutButton.setOnAction(e -> startShootout(state));
+
+        // Unentschieden nach regulärem Ende: das Kampfgericht kann das Spiel auch ohne
+        // Verlängerung und ohne 7-m-Werfen beenden; der Knopf erscheint nur in diesem Zustand
+        Button endGameButton = new Button("🏁 Beenden");
+        endGameButton.setTooltip(new Tooltip("Spiel bei Unentschieden beenden"));
+        endGameButton.getStyleClass().add("big-button");
+        endGameButton.setMinWidth(Region.USE_PREF_SIZE);
+        endGameButton.visibleProperty().bind(Bindings.createBooleanBinding(
+                state::canEndGame,
+                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty(),
+                state.endedProperty(), state.scoreProperty(TeamSide.HOME),
+                state.scoreProperty(TeamSide.GUEST)));
+        endGameButton.managedProperty().bind(endGameButton.visibleProperty());
+        // „Zeit stellen…“ ist nach Spielende ohnehin gesperrt: Platz für „Beenden“ in schmalen Fenstern
+        setTimeButton.visibleProperty().bind(endGameButton.visibleProperty().not());
+        setTimeButton.managedProperty().bind(setTimeButton.visibleProperty());
+        endGameButton.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Unentschieden stehen lassen und Spiel beenden? Danach sind weder "
+                            + "Verlängerung noch 7-m-Werfen möglich.",
+                    ButtonType.OK, ButtonType.CANCEL);
+            confirm.setHeaderText(null);
+            if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+                state.endGame();
+            }
+        });
 
         nextPeriodButton.setMinWidth(Region.USE_PREF_SIZE);
         setTimeButton.setMinWidth(Region.USE_PREF_SIZE);
         shootoutButton.setMinWidth(Region.USE_PREF_SIZE);
         HBox clockButtons = new HBox(10, startPauseButton, nextPeriodButton, shootoutButton,
-                setTimeButton);
+                endGameButton, setTimeButton);
         clockButtons.setAlignment(Pos.CENTER);
         fitToCellWidth(clockButtons, HPos.LEFT);
 

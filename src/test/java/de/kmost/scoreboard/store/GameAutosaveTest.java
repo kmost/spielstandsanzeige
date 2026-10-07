@@ -231,4 +231,18 @@ class GameAutosaveTest {
         assertEquals("4", resumed.penalties(TeamSide.HOME).get(0).playerNumber());
         assertEquals(GameClock.Phase.PAUSED, resumed.clock().phaseProperty().get());
     }
+
+    @Test
+    void endingTheDrawDeletesTheSnapshot() {
+        state.clock().start();
+        advance(60);
+        state.clock().startNextPeriod();
+        advance(60);
+        assertTrue(Files.exists(file()));
+
+        state.endGame();
+
+        assertFalse(Files.exists(file()));
+        assertTrue(state.isOver());
+    }
 }

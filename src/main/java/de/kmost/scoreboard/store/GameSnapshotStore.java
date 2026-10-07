@@ -151,6 +151,9 @@ public class GameSnapshotStore {
                 props.setProperty("shootout." + i + ".goal", String.valueOf(a.goal()));
             }
         }
+        if (s.ended()) {
+            props.setProperty("ended", "true");
+        }
         return props;
     }
 
@@ -193,7 +196,8 @@ public class GameSnapshotStore {
                 number(props, "elapsed"),
                 (int) number(props, "score.home"), (int) number(props, "score.guest"),
                 (int) number(props, "timeouts.home"), (int) number(props, "timeouts.guest"),
-                List.copyOf(penalties), shootoutStart, List.copyOf(attempts));
+                List.copyOf(penalties), shootoutStart, List.copyOf(attempts),
+                Boolean.parseBoolean(props.getProperty("ended", "false")));
     }
 
     private static String text(Properties props, String key) {

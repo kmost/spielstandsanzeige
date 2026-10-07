@@ -47,7 +47,8 @@ mvn javafx:run
    ein Sieger her, führt **„7-m-Werfen…“** durch das Werfen: Startteam wählen,
    dann nur noch „Tor“/„Kein Tor“ — Reihenfolge, vorzeitiges Ende, Sudden Death
    (die andere Mannschaft beginnt) und Siegermeldung übernimmt die App; Treffer
-   zählen aufs Endergebnis, Fehleingaben nimmt „Wurf zurücknehmen“ zurück.
+   zählen aufs Endergebnis, Fehleingaben nimmt „Wurf zurücknehmen“ zurück. Soll das
+   Unentschieden stehen bleiben, beendet **„Beenden“** (mit Rückfrage) das Spiel.
    **„Zeit stellen…“** korrigiert die Spielzeit manuell (Eingabe im Anzeigeformat
    der Uhr, begrenzt auf die aktuelle Periode) — auch aus der Halbzeitpause
    heraus, falls die Uhr zu spät gestoppt wurde.
@@ -68,7 +69,8 @@ mvn javafx:run
    7-m-Werfen) wird atomar unter `~/.spielstandsanzeige/game.properties` gesichert.
    Nach Absturz oder Neustart bietet die App an, das Spiel fortzusetzen (Uhr
    pausiert auf der letzten Zeit); das Schließen des Fensters fragt bei laufendem
-   Spiel nach. Beendete oder abgebrochene Spiele werden nicht gesichert, eine
+   Spiel nach. Beendete oder abgebrochene Spiele (auch ein bei Gleichstand mit „Beenden“
+   abgeschlossenes) werden nicht gesichert, eine
    defekte Sicherung blockiert den Start nie.
 7. **„Konfiguration…“** öffnet das Konfigurationsfenster der Anzeige: ein **Header**
    (oben) und ein **Footer** (unten), jeweils ein festes Raster aus bis zu 6 Texten

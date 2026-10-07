@@ -94,6 +94,11 @@ nötig.
   Endergebnis; die Anzeige zeigt die Trefferfolge unter den Teamnamen
   (● Tor, ○ Fehlwurf). Eine Fehleingabe machen Sie mit **„↩ Wurf
   zurücknehmen“** rückgängig.
+- Soll das **Unentschieden stehen bleiben**, beenden Sie das Spiel mit
+  **„🏁 Beenden“** (mit Rückfrage). Der Knopf erscheint nur bei Gleichstand nach
+  dem regulären Spielende, solange weder Verlängerung noch 7-m-Werfen gestartet
+  wurden. Danach sind beide gesperrt, das Spiel zählt als beendet: Es wird nicht
+  mehr zum Fortsetzen angeboten, und das Schließen des Fensters fragt nicht mehr nach.
 - **„📢 Hupe“** löst die Hupe von Hand aus, z. B. zur Ankündigung des
   Wiederanpfiffs.
 - **„⏹ Spiel abbrechen“** beendet das Spiel vorzeitig — die Uhr stoppt nach

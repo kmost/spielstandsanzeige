@@ -47,6 +47,7 @@ public class GameAutosave {
             state.penalties(side).addListener(onChange);
         }
         state.clock().phaseProperty().addListener(onChange);
+        state.endedProperty().addListener(onChange);
         state.clock().periodProperty().addListener(onChange);
         state.shootoutProperty().addListener(obs -> {
             observe(state.shootoutProperty().get());

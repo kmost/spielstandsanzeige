@@ -8,6 +8,7 @@ import java.time.Duration;
 import javax.imageio.ImageIO;
 
 import de.kmost.scoreboard.model.ClockDirection;
+import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameConfig;
 import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
@@ -50,11 +51,24 @@ public class ControlPreview extends Application {
         GameState state = new GameState(config);
         control.gameStateProperty().set(state);
         state.clock().start();
-        DisplayPreview.fastForwardToOvertime(state, config);
-        DisplayPreview.fastForwardToShootout(state, config);
-        state.addGoal(TeamSide.HOME);
-        state.addGoal(TeamSide.HOME);
-        state.addGoal(TeamSide.GUEST);
+        if (Boolean.getBoolean("preview.draw")) {
+            // -Dpreview.draw=true: Unentschieden nach regulärem Ende (Knopf „Spiel beenden“)
+            state.addGoal(TeamSide.HOME);
+            state.addGoal(TeamSide.GUEST);
+            for (int period = 1; period <= config.mode().periodCount(); period++) {
+                state.clock().setElapsed((long) period * config.periodMillis());
+                state.clock().tick();
+                if (state.clock().phaseProperty().get() == GameClock.Phase.HALF_TIME) {
+                    state.clock().startNextPeriod();
+                }
+            }
+        } else {
+            DisplayPreview.fastForwardToOvertime(state, config);
+            DisplayPreview.fastForwardToShootout(state, config);
+            state.addGoal(TeamSide.HOME);
+            state.addGoal(TeamSide.HOME);
+            state.addGoal(TeamSide.GUEST);
+        }
         state.addPenalty(TeamSide.HOME, "7");
         state.addPenalty(TeamSide.HOME, null);
         state.addPenalty(TeamSide.GUEST, "13");
