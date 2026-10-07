@@ -70,6 +70,15 @@ mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
 - **Dateien schreibt `store/` atomar** (`PropertiesFiles`: Temp-Datei, dann Umbenennen),
   damit ein Absturz nie eine halbe Datei hinterlässt. Fehler gehen an den `ProblemReporter`,
   nicht auf `System.err`.
+- **Gespeicherte Dateien tragen eine Schemaversion** (`schema=<n>`, bei `teams.properties`
+  `_schema`). Dateien ohne Eintrag gelten als Version 0. Ändert sich ein Format: Version
+  erhöhen, die Umwandlung als Stufe in `store/migration/` ergänzen (reine
+  Properties-zu-Properties-Funktion, ein Test mit einer echten Datei der Vorversion) —
+  nie im Lesecode der Stores. Dateien einer *neueren* Version werden nie überschrieben:
+  aktive Einstellungen landen als `<datei>.schema<n>` im Ordner (die App startet mit
+  Standardwerten und meldet das), einzelne Themes werden ignoriert, eine neuere
+  Spielsicherung bleibt als `game.properties.defekt` liegen. Teamnamen mit `_` am Anfang
+  sind den internen Schlüsseln vorbehalten und werden nicht gespeichert.
 - **Keine neuen Laufzeit-Abhängigkeiten** ohne guten Grund: Die App soll als
   selbständige EXE/App paketierbar bleiben (Hupe wird z. B. zur Laufzeit
   generiert statt als Audio-Asset mitgeliefert).

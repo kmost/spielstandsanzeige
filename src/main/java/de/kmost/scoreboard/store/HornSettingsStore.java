@@ -12,6 +12,8 @@ import de.kmost.scoreboard.diagnostics.ProblemReporter;
 public final class HornSettingsStore {
 
     private static final String FILE = "horn.properties";
+    /** Schema 1 = heutiges Format; Dateien ohne Eintrag (Version 0) haben dasselbe Format. */
+    private static final int SCHEMA = 1;
 
     /** Gespeicherte Auswahl; {@code tone} leer = nichts gespeichert, {@code file} null = keine eigene Datei. */
     public record HornSettings(String tone, File file) {
@@ -31,6 +33,7 @@ public final class HornSettingsStore {
      */
     public void save(String tone, File file) {
         Properties props = new Properties();
+        SchemaVersion.stamp(props, SCHEMA);
         props.setProperty("tone", tone == null ? "" : tone);
         props.setProperty("file", file == null ? "" : file.getAbsolutePath());
         try {
@@ -48,6 +51,11 @@ public final class HornSettingsStore {
         }
         try {
             Properties props = PropertiesFiles.load(file);
+            int schema = SchemaVersion.of(props);
+            if (schema > SCHEMA) {
+                SchemaVersion.setAsideNewer(file, schema, reporter);
+                return new HornSettings("", null);
+            }
             String path = props.getProperty("file", "");
             return new HornSettings(props.getProperty("tone", ""), path.isBlank() ? null : new File(path));
         } catch (IOException e) {

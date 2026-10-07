@@ -21,6 +21,8 @@ public final class ThemeStore {
 
     private static final String THEME_DIR = "themes";
     private static final String NAME_KEY = "_name";
+    /** Schema 1 = heutiges Format; Dateien ohne Eintrag (Version 0) haben dasselbe Format. */
+    private static final int SCHEMA = 1;
     private static final int MAX_FILE_NAME_LENGTH = 80;
     private static final Pattern RESERVED_WINDOWS_NAME =
             Pattern.compile("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])");
@@ -85,6 +87,7 @@ public final class ThemeStore {
         }
         Properties props = ThemeProperties.toProperties(theme);
         props.setProperty(NAME_KEY, wanted);
+        SchemaVersion.stamp(props, SCHEMA);
         try {
             PropertiesFiles.store(target, props, "Farb-Theme der Spielstandsanzeige");
             return new SaveResult(SaveResult.Status.SAVED, null);
@@ -153,7 +156,15 @@ public final class ThemeStore {
             return null;
         }
         try {
-            return PropertiesFiles.load(file);
+            Properties props = PropertiesFiles.load(file);
+            int schema = SchemaVersion.of(props);
+            if (schema > SCHEMA) {
+                // von einer neueren Version geschrieben: nicht lesen, nicht anfassen
+                reporter.log("Theme-Datei „" + file.getFileName() + "“ hat ein neueres Schema ("
+                        + schema + ") und wird ignoriert", null);
+                return null;
+            }
+            return props;
         } catch (IOException e) {
             reporter.report("Datei „" + file.getFileName() + "“ nicht lesbar", e);
             return null;
