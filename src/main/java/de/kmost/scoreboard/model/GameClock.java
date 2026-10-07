@@ -1,7 +1,12 @@
 package de.kmost.scoreboard.model;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.LongSupplier;
 
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanWrapper;
 import javafx.beans.property.ReadOnlyIntegerProperty;
@@ -25,16 +30,18 @@ public class GameClock {
 
     private long accumulatedMillis;
     private long startNanos;
-    private Runnable onPeriodEnd;
+    private final List<Runnable> periodEndListeners = new ArrayList<>();
     /** Anzahl der gestarteten Verlängerungen; jede verlängert den Spielplan um ihre Abschnitte. */
     private int overtimes;
     /** Spiel nach Gleichstand ohne Verlängerung beendet: keine Verlängerung mehr möglich. */
-    private boolean closed;
+    private final BooleanProperty closed = new SimpleBooleanProperty(false);
 
     private final ReadOnlyLongWrapper elapsedMillis = new ReadOnlyLongWrapper(0);
     private final ReadOnlyIntegerWrapper period = new ReadOnlyIntegerWrapper(1);
+    // läuft genau in der Phase RUNNING; wird daraus abgeleitet und nie getrennt gesetzt
     private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);
     private final ReadOnlyObjectWrapper<Phase> phase = new ReadOnlyObjectWrapper<>(Phase.NOT_STARTED);
+    private final ReadOnlyBooleanWrapper canStartOvertime = new ReadOnlyBooleanWrapper(false);
 
     public GameClock(GameConfig config) {
         this(config, System::nanoTime);
@@ -43,6 +50,9 @@ public class GameClock {
     public GameClock(GameConfig config, LongSupplier nanoSource) {
         this.config = config;
         this.nanoSource = nanoSource;
+        running.bind(phase.isEqualTo(Phase.RUNNING));
+        canStartOvertime.bind(Bindings.createBooleanBinding(this::canStartOvertime,
+                phase, elapsedMillis, period, closed));
     }
 
     /** Startet die Uhr bzw. setzt sie nach einer Pause fort. */
@@ -52,7 +62,6 @@ public class GameClock {
             return;
         }
         startNanos = nanoSource.getAsLong();
-        running.set(true);
         phase.set(Phase.RUNNING);
     }
 
@@ -61,7 +70,6 @@ public class GameClock {
             return;
         }
         accumulatedMillis = currentElapsed();
-        running.set(false);
         phase.set(Phase.PAUSED);
     }
 
@@ -72,7 +80,6 @@ public class GameClock {
         }
         period.set(period.get() + 1);
         startNanos = nanoSource.getAsLong();
-        running.set(true);
         phase.set(Phase.RUNNING);
     }
 
@@ -90,7 +97,6 @@ public class GameClock {
         period.set(period.get() + 1);
         accumulatedMillis = elapsedMillis.get();
         startNanos = nanoSource.getAsLong();
-        running.set(true);
         phase.set(Phase.RUNNING);
     }
 
@@ -99,14 +105,19 @@ public class GameClock {
      * und nicht ausdrücklich beendet wurde ({@link #close()}).
      */
     public boolean canStartOvertime() {
-        return !closed
+        return !closed.get()
                 && phase.get() == Phase.FINISHED
                 && elapsedMillis.get() == currentPeriodEndMillis();
     }
 
+    /** Wie {@link #canStartOvertime()}, aber zum Binden: ändert sich mit Phase, Zeit und Periode. */
+    public ReadOnlyBooleanProperty canStartOvertimeProperty() {
+        return canStartOvertime.getReadOnlyProperty();
+    }
+
     /** Schließt das Spiel endgültig: Es gibt danach keine Verlängerung mehr. */
     void close() {
-        closed = true;
+        closed.set(true);
     }
 
     /** Beendet das Spiel sofort (Spielabbruch): Die Uhr stoppt endgültig bei der aktuellen Zeit. */
@@ -118,7 +129,6 @@ public class GameClock {
             accumulatedMillis = currentElapsed();
             elapsedMillis.set(accumulatedMillis);
         }
-        running.set(false);
         phase.set(Phase.FINISHED);
     }
 
@@ -163,7 +173,6 @@ public class GameClock {
         accumulatedMillis = elapsed;
         startNanos = nanoSource.getAsLong();
         elapsedMillis.set(elapsed);
-        running.set(false);
         phase.set(restoredPhase == Phase.RUNNING ? Phase.PAUSED : restoredPhase);
     }
 
@@ -180,11 +189,11 @@ public class GameClock {
         long periodEnd = currentPeriodEndMillis();
         if (elapsed >= periodEnd) {
             accumulatedMillis = periodEnd;
-            running.set(false);
-            phase.set(period.get() >= scheduledPeriodCount() ? Phase.FINISHED : Phase.HALF_TIME);
+            // erst die Zeit, dann die Phase: wer auf die Phase reagiert, sieht schon die Endzeit
             elapsedMillis.set(periodEnd);
-            if (onPeriodEnd != null) {
-                onPeriodEnd.run();
+            phase.set(period.get() >= scheduledPeriodCount() ? Phase.FINISHED : Phase.HALF_TIME);
+            for (Runnable listener : List.copyOf(periodEndListeners)) {
+                listener.run();
             }
         } else {
             elapsedMillis.set(elapsed);
@@ -222,8 +231,13 @@ public class GameClock {
                 + (long) (period - regular - 1) * config.overtimeMillis();
     }
 
-    public void setOnPeriodEnd(Runnable onPeriodEnd) {
-        this.onPeriodEnd = onPeriodEnd;
+    /** Wird am Ende jedes Spielabschnitts aufgerufen (z. B. für die Hupe); mehrere Empfänger möglich. */
+    public void addOnPeriodEnd(Runnable listener) {
+        periodEndListeners.add(listener);
+    }
+
+    public void removeOnPeriodEnd(Runnable listener) {
+        periodEndListeners.remove(listener);
     }
 
     public ReadOnlyLongProperty elapsedMillisProperty() {

@@ -91,7 +91,7 @@ class GameClockTest {
     void clampsExactlyAtHalfTimeAndFiresCallbackOnce() {
         GameClock clock = clock(GameMode.TWO_HALVES);
         AtomicInteger hornCount = new AtomicInteger();
-        clock.setOnPeriodEnd(hornCount::incrementAndGet);
+        clock.addOnPeriodEnd(hornCount::incrementAndGet);
         clock.start();
         time.advanceMillis(PERIOD_MILLIS + 7_000);
         clock.tick();
@@ -109,7 +109,7 @@ class GameClockTest {
     void secondHalfRunsFromHalfTimeMarkToFinish() {
         GameClock clock = clock(GameMode.TWO_HALVES);
         AtomicInteger hornCount = new AtomicInteger();
-        clock.setOnPeriodEnd(hornCount::incrementAndGet);
+        clock.addOnPeriodEnd(hornCount::incrementAndGet);
         clock.start();
         time.advanceMillis(PERIOD_MILLIS);
         clock.tick();
@@ -130,7 +130,7 @@ class GameClockTest {
     void threeThirdsPauseTwiceAndFinishAfterThirdPeriod() {
         GameClock clock = clock(GameMode.THREE_THIRDS);
         AtomicInteger hornCount = new AtomicInteger();
-        clock.setOnPeriodEnd(hornCount::incrementAndGet);
+        clock.addOnPeriodEnd(hornCount::incrementAndGet);
         clock.start();
         time.advanceMillis(PERIOD_MILLIS);
         clock.tick();
@@ -257,7 +257,7 @@ class GameClockTest {
     void overtimeAsSinglePeriodRunsAndFinishes() {
         GameClock clock = clock(GameMode.TWO_HALVES, OvertimeFormat.SINGLE_PERIOD);
         AtomicInteger hornCount = new AtomicInteger();
-        clock.setOnPeriodEnd(hornCount::incrementAndGet);
+        clock.addOnPeriodEnd(hornCount::incrementAndGet);
         playRegulation(clock, GameMode.TWO_HALVES);
         clock.startOvertime();
         assertEquals(3, clock.periodProperty().get());
@@ -346,5 +346,85 @@ class GameClockTest {
         clock.setElapsed(10_000);
         assertEquals(GameClock.Phase.FINISHED, clock.phaseProperty().get());
         assertEquals(PERIOD_MILLIS, clock.elapsedMillisProperty().get());
+    }
+
+    @Test
+    void runningIsDerivedFromPhaseThroughAllTransitions() {
+        GameClock clock = clock(GameMode.TWO_HALVES);
+        assertFalse(clock.runningProperty().get());
+        clock.start();
+        assertTrue(clock.runningProperty().get());
+        clock.pause();
+        assertFalse(clock.runningProperty().get());
+        clock.start();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertEquals(GameClock.Phase.HALF_TIME, clock.phaseProperty().get());
+        assertFalse(clock.runningProperty().get());
+        clock.startNextPeriod();
+        assertTrue(clock.runningProperty().get());
+        clock.finish();
+        assertFalse(clock.runningProperty().get());
+    }
+
+    @Test
+    void periodEndListenersSeeFinalTimeAndPhase() {
+        GameClock clock = clock(GameMode.TWO_HALVES);
+        java.util.List<String> seen = new java.util.ArrayList<>();
+        clock.addOnPeriodEnd(() -> seen.add(
+                clock.phaseProperty().get() + "@" + clock.elapsedMillisProperty().get()));
+        clock.start();
+        time.advanceMillis(PERIOD_MILLIS + 1_000);
+        clock.tick();
+        assertEquals(java.util.List.of("HALF_TIME@" + PERIOD_MILLIS), seen);
+    }
+
+    @Test
+    void severalPeriodEndListenersAllFireAndCanBeRemoved() {
+        GameClock clock = clock(GameMode.TWO_HALVES);
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger second = new AtomicInteger();
+        Runnable firstListener = first::incrementAndGet;
+        clock.addOnPeriodEnd(firstListener);
+        clock.addOnPeriodEnd(second::incrementAndGet);
+        clock.start();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertEquals(1, first.get());
+        assertEquals(1, second.get());
+
+        clock.removeOnPeriodEnd(firstListener);
+        clock.startNextPeriod();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertEquals(1, first.get());
+        assertEquals(2, second.get());
+    }
+
+    @Test
+    void canStartOvertimePropertyFollowsRegulationEndAndClose() {
+        GameClock clock = clock(GameMode.TWO_HALVES);
+        assertFalse(clock.canStartOvertimeProperty().get());
+        clock.start();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        clock.startNextPeriod();
+        time.advanceMillis(PERIOD_MILLIS);
+        clock.tick();
+        assertTrue(clock.canStartOvertimeProperty().get());
+        assertEquals(clock.canStartOvertime(), clock.canStartOvertimeProperty().get());
+
+        clock.close();
+        assertFalse(clock.canStartOvertimeProperty().get());
+    }
+
+    @Test
+    void canStartOvertimePropertyIsFalseAfterAbort() {
+        GameClock clock = clock(GameMode.TWO_HALVES);
+        clock.start();
+        time.advanceMillis(10_000);
+        clock.tick();
+        clock.finish();
+        assertFalse(clock.canStartOvertimeProperty().get());
     }
 }
