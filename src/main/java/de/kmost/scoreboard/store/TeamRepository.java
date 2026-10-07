@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
 
+import de.kmost.scoreboard.diagnostics.ProblemReporter;
+
 /**
  * Persistente Team-Datenbank: merkt sich alle genutzten Teamnamen.
  * Ablage unter ~/.spielstandsanzeige/teams.properties, damit die Daten
@@ -22,15 +24,21 @@ public class TeamRepository {
     private static final String DEFAULT_HOME_KEY = "_defaultHome";
 
     private final Path baseDir;
+    private final ProblemReporter reporter;
     // Werte alter Dateien (früher Logo-Dateinamen) werden ignoriert, aber erhalten
     private final Properties teams = new Properties();
 
     public TeamRepository() {
-        this(Path.of(System.getProperty("user.home"), ".spielstandsanzeige"));
+        this(Path.of(System.getProperty("user.home"), ".spielstandsanzeige"), ProblemReporter.shared());
     }
 
     public TeamRepository(Path baseDir) {
+        this(baseDir, new ProblemReporter(baseDir.resolve("spielstandsanzeige.log")));
+    }
+
+    public TeamRepository(Path baseDir, ProblemReporter reporter) {
         this.baseDir = baseDir;
+        this.reporter = reporter;
         load();
     }
 
@@ -57,7 +65,7 @@ public class TeamRepository {
         try {
             store();
         } catch (IOException e) {
-            System.err.println("Standard-Heimteam konnte nicht gespeichert werden: " + e.getMessage());
+            reporter.report("Standard-Heimteam konnte nicht gespeichert werden", e);
         }
     }
 
@@ -71,7 +79,7 @@ public class TeamRepository {
         try {
             store();
         } catch (IOException e) {
-            System.err.println("Team „" + name + "“ konnte nicht gespeichert werden: " + e.getMessage());
+            reporter.report("Team „" + name + "“ konnte nicht gespeichert werden", e);
         }
     }
 
@@ -83,7 +91,7 @@ public class TeamRepository {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             teams.load(reader);
         } catch (IOException e) {
-            System.err.println("Team-Datenbank nicht lesbar: " + e.getMessage());
+            reporter.report("Team-Datenbank nicht lesbar", e);
         }
     }
 

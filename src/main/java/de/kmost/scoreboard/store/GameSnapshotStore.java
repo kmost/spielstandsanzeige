@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.model.ClockDirection;
 import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameMode;
@@ -36,13 +37,19 @@ public class GameSnapshotStore {
     private static final int SCHEMA = 1;
 
     private final Path baseDir;
+    private final ProblemReporter reporter;
 
     public GameSnapshotStore() {
-        this(Path.of(System.getProperty("user.home"), ".spielstandsanzeige"));
+        this(Path.of(System.getProperty("user.home"), ".spielstandsanzeige"), ProblemReporter.shared());
     }
 
     public GameSnapshotStore(Path baseDir) {
+        this(baseDir, new ProblemReporter(baseDir.resolve("spielstandsanzeige.log")));
+    }
+
+    public GameSnapshotStore(Path baseDir, ProblemReporter reporter) {
         this.baseDir = baseDir;
+        this.reporter = reporter;
     }
 
     /** Sichert das Abbild; Fehler werden gemeldet, blockieren aber nie den Spielbetrieb. */
@@ -60,7 +67,7 @@ public class GameSnapshotStore {
                 Files.move(temp, baseDir.resolve(FILE), StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
-            System.err.println("Spielstand konnte nicht gesichert werden: " + e.getMessage());
+            reporter.report("Spielstand konnte nicht gesichert werden", e);
         }
     }
 
@@ -75,7 +82,7 @@ public class GameSnapshotStore {
             props.load(reader);
             return Optional.of(fromProperties(props));
         } catch (IOException | RuntimeException e) {
-            System.err.println("Gesichertes Spiel nicht lesbar: " + e.getMessage());
+            reporter.report("Gesichertes Spiel nicht lesbar", e);
             quarantine();
             return Optional.empty();
         }
@@ -87,7 +94,7 @@ public class GameSnapshotStore {
             Files.deleteIfExists(baseDir.resolve(FILE));
             Files.deleteIfExists(baseDir.resolve(TEMP_FILE));
         } catch (IOException e) {
-            System.err.println("Gesichertes Spiel konnte nicht gelöscht werden: " + e.getMessage());
+            reporter.report("Gesichertes Spiel konnte nicht gelöscht werden", e);
         }
     }
 
@@ -100,7 +107,7 @@ public class GameSnapshotStore {
             Files.move(baseDir.resolve(FILE), baseDir.resolve(BROKEN_FILE),
                     StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            System.err.println("Defektes Spiel konnte nicht beiseitegelegt werden: " + e.getMessage());
+            reporter.log("Defektes Spiel konnte nicht beiseitegelegt werden", e);
         }
     }
 

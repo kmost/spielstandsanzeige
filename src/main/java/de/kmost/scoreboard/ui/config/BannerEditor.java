@@ -1,8 +1,10 @@
 package de.kmost.scoreboard.ui.config;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 
+import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.store.LogoDownloader;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.BannerConfig;
@@ -118,8 +120,11 @@ final class BannerEditor {
             }
             try {
                 storeImage(index, LogoDownloader.download(url));
-            } catch (Exception ex) {
+            } catch (IOException | IllegalArgumentException ex) {
+                ProblemReporter.shared().log("Bild-Download fehlgeschlagen: " + url.strip(), ex);
                 warn("Bild konnte nicht geladen werden: " + ex.getMessage());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
             }
         });
     }

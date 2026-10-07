@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.model.ClockDirection;
 import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameConfig;
@@ -28,6 +29,7 @@ import de.kmost.scoreboard.ui.Theme;
 import de.kmost.scoreboard.ui.TimeFormatter;
 import de.kmost.scoreboard.ui.config.ConfigWindow;
 import de.kmost.scoreboard.ui.display.DisplayWindow;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
@@ -75,6 +77,9 @@ public class ControlWindow {
     private final ObjectProperty<GameState> gameState = new SimpleObjectProperty<>();
     private final DisplayWindow displayWindow;
     private final BorderPane root = new BorderPane();
+    private final ProblemReporter reporter = ProblemReporter.shared();
+    private final Label statusLine = new Label();
+    private final PauseTransition statusTimeout = new PauseTransition(javafx.util.Duration.seconds(10));
 
     private final TeamRepository teamRepository;
     private final ThemeRepository themeRepository;
@@ -108,6 +113,7 @@ public class ControlWindow {
         this.teamRepository = teamRepository;
         this.themeRepository = themeRepository;
         this.snapshotStore = snapshotStore;
+        buildStatusLine();
         this.knownTeams.setAll(teamRepository.teamNames());
         this.defaultHomeTeam = teamRepository.defaultHomeTeam();
         this.displayWindow = new DisplayWindow(gameState);
@@ -164,6 +170,39 @@ public class ControlWindow {
                 && !state.isOver();
     }
 
+    /**
+     * Statuszeile am unteren Rand für Probleme, die den Spielbetrieb nicht stoppen
+     * (z. B. Speichern fehlgeschlagen): blendet sich nach einigen Sekunden aus.
+     */
+    private void buildStatusLine() {
+        statusLine.getStyleClass().add("status-line");
+        statusLine.setMaxWidth(Double.MAX_VALUE);
+        statusLine.setWrapText(true);
+        statusLine.setVisible(false);
+        statusLine.setManaged(false);
+        statusTimeout.setOnFinished(e -> {
+            statusLine.setVisible(false);
+            statusLine.setManaged(false);
+        });
+        root.setBottom(statusLine);
+        // Meldungen können aus jedem Thread kommen
+        reporter.addListener(message -> {
+            if (Platform.isFxApplicationThread()) {
+                showProblem(message);
+            } else {
+                Platform.runLater(() -> showProblem(message));
+            }
+        });
+    }
+
+    /** Zeigt eine Problemmeldung in der Statuszeile; eine neue Meldung ersetzt die alte. */
+    void showProblem(String message) {
+        statusLine.setText("⚠ " + message + " – Details in ~/.spielstandsanzeige/spielstandsanzeige.log");
+        statusLine.setVisible(true);
+        statusLine.setManaged(true);
+        statusTimeout.playFromStart();
+    }
+
     public GameState gameState() {
         return gameState.get();
     }
@@ -204,7 +243,7 @@ public class ControlWindow {
             try {
                 return GameState.restore(snapshot, System::nanoTime);
             } catch (IllegalArgumentException e) {
-                System.err.println("Gesichertes Spiel unbrauchbar: " + e.getMessage());
+                reporter.report("Gesichertes Spiel unbrauchbar", e);
                 snapshotStore.quarantine();
                 return null;
             }
