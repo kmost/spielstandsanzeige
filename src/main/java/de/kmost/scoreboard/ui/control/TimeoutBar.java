@@ -21,7 +21,7 @@ final class TimeoutBar {
     TimeoutBar(GameState state) {
         this.state = state;
         box.setAlignment(Pos.CENTER);
-        ControlLayout.fitToCellWidth(box, HPos.LEFT);
+        ControlLayout.fitToCellWidth(box, HPos.CENTER);
         state.activeTimeoutProperty().addListener((obs, oldTimeout, timeout) -> rebuild());
         rebuild();
     }

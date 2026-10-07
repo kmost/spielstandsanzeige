@@ -36,14 +36,21 @@ final class ControlLayout {
      * Publikumsanzeige: nichts wird mit „…“ gekürzt, nichts ragt in
      * Nachbarzellen. Damit das funktioniert, müssen die Kinder ihre bevorzugte
      * Breite als Mindestbreite behalten (USE_PREF_SIZE) statt gestaucht zu
-     * werden. Der Pivot bestimmt, welche Kante beim Einpassen stehen bleibt.
+     * werden. Der Pivot bestimmt, welche Kante beim Einpassen stehen bleibt und muss zur
+     * Ausrichtung des Inhalts passen: Überstehender Inhalt ragt bei linksbündiger
+     * Ausrichtung nach rechts (Pivot links), bei rechtsbündiger nach links (Pivot rechts)
+     * und bei zentrierter nach beiden Seiten gleich weit (Pivot Mitte). Passt der Pivot nicht,
+     * rutscht der eingepasste Inhalt aus seiner Zelle in die Nachbarzelle, deren Fläche
+     * dann Klicks abfängt.
      */
     static <T extends Region> T fitToCellWidth(T content, HPos anchor) {
         Scale fit = new Scale(1, 1);
         if (anchor == HPos.RIGHT) {
             fit.pivotXProperty().bind(content.widthProperty());
+        } else if (anchor == HPos.CENTER) {
+            fit.pivotXProperty().bind(content.widthProperty().divide(2));
         }
-        // LEFT/CENTER: Pivot 0 — überbreiter Inhalt beginnt links und füllt
+        // LEFT: Pivot 0 — überbreiter Inhalt beginnt links und füllt
         // eingepasst genau die Zellbreite
         fit.pivotYProperty().bind(content.heightProperty().divide(2));
         content.getTransforms().add(fit);
