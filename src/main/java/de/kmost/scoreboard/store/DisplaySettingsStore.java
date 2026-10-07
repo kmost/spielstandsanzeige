@@ -5,17 +5,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
 import de.kmost.scoreboard.diagnostics.ProblemReporter;
+import de.kmost.scoreboard.store.migration.DisplaySettingsMigration;
 import de.kmost.scoreboard.ui.BannerConfig;
 import de.kmost.scoreboard.ui.Theme;
 
 /**
  * Der zuletzt aktive Anzeige-Zustand (Farben, Schrift, Größen, Header und Footer) in
- * display.properties; wird beim nächsten Start wiederhergestellt. Fehler beim Lesen/Schreiben
+ * display.properties; wird beim nächsten Start wiederhergestellt. Die Datei trägt eine
+ * Schemaversion ({@link DisplaySettingsMigration}); ältere Formate werden beim Lesen umgewandelt,
+ * eine neuere Version wird beiseitegelegt statt überschrieben. Fehler beim Lesen/Schreiben
  * werden gemeldet, blockieren aber nie den Spielbetrieb.
  */
 public final class DisplaySettingsStore {
@@ -44,6 +46,7 @@ public final class DisplaySettingsStore {
     /** Merkt den aktiven Zustand; wird beim nächsten Start wiederhergestellt. */
     public void save(Theme theme, BannerConfig header, BannerConfig footer) {
         Properties props = ThemeProperties.toProperties(theme);
+        SchemaVersion.stamp(props, DisplaySettingsMigration.CURRENT_SCHEMA);
         putBanner(props, "header", header);
         putBanner(props, "footer", footer);
         try {
@@ -67,6 +70,12 @@ public final class DisplaySettingsStore {
             reporter.report("Datei „" + FILE + "“ nicht lesbar", e);
             return DisplaySettings.defaults();
         }
+        int schema = SchemaVersion.of(props);
+        if (schema > DisplaySettingsMigration.CURRENT_SCHEMA) {
+            SchemaVersion.setAsideNewer(file, schema, reporter);
+            return DisplaySettings.defaults();
+        }
+        props = DisplaySettingsMigration.upgrade(props, schema);
         return new DisplaySettings(ThemeProperties.fromProperties(props, reporter),
                 bannerFrom(props, "header"), bannerFrom(props, "footer"));
     }
@@ -82,57 +91,16 @@ public final class DisplaySettingsStore {
         }
     }
 
+    /** Banner im Raster-Format (Schema 1); ältere Formate hat {@link DisplaySettingsMigration} schon umgewandelt. */
     private BannerConfig bannerFrom(Properties props, String prefix) {
-        if (props.getProperty(prefix + ".text.0") != null) {
-            List<String> texts = new ArrayList<>();
-            for (int i = 0; i < BannerConfig.TEXT_SLOTS; i++) {
-                texts.add(props.getProperty(prefix + ".text." + i, ""));
-            }
-            List<File> images = new ArrayList<>();
-            for (int i = 0; i < BannerConfig.IMAGE_SLOTS; i++) {
-                images.add(bannerImages.resolve(props.getProperty(prefix + ".image." + i, "")));
-            }
-            return new BannerConfig(texts, images);
+        List<String> texts = new ArrayList<>();
+        for (int i = 0; i < BannerConfig.TEXT_SLOTS; i++) {
+            texts.add(props.getProperty(prefix + ".text." + i, ""));
         }
-        if (props.getProperty(prefix + ".variant") != null) {
-            return migrateVariantFormat(props, prefix);
+        List<File> images = new ArrayList<>();
+        for (int i = 0; i < BannerConfig.IMAGE_SLOTS; i++) {
+            images.add(bannerImages.resolve(props.getProperty(prefix + ".image." + i, "")));
         }
-        // ältestes Format: nur ein Text (headerText/footerText)
-        return new BannerConfig(List.of(props.getProperty(prefix + "Text", "")), List.of());
-    }
-
-    /**
-     * Migration des Zwischenformats mit Layout-Varianten: die Slot-Reihenfolge der
-     * Variante wird im Text/Bild-Raster nachgebildet (T = Text 1, U = Text 2,
-     * 1/2 = Bild 1/2), damit die Anzeige-Reihenfolge erhalten bleibt.
-     */
-    private BannerConfig migrateVariantFormat(Properties props, String prefix) {
-        String pattern = switch (props.getProperty(prefix + ".variant", "")) {
-            case "BILD_TEXT" -> "1T";
-            case "TEXT_BILD" -> "T1";
-            case "BILD_TEXT_BILD" -> "1T2";
-            case "TEXT_BILD_TEXT" -> "T1U";
-            case "NUR_BILD" -> "1";
-            case "BILDER" -> "12";
-            default -> "T";
-        };
-        String[] texts = new String[BannerConfig.TEXT_SLOTS];
-        File[] images = new File[BannerConfig.IMAGE_SLOTS];
-        int position = 0; // Raster-Position: gerade = Text-Slot, ungerade = Bild-Slot
-        for (char slot : pattern.toCharArray()) {
-            boolean isText = slot == 'T' || slot == 'U';
-            while ((position % 2 == 0) != isText) {
-                position++;
-            }
-            if (isText) {
-                texts[position / 2] = props.getProperty(
-                        prefix + (slot == 'T' ? ".text1" : ".text2"), "");
-            } else {
-                images[position / 2] = bannerImages.resolve(props.getProperty(
-                        prefix + (slot == '1' ? ".image1" : ".image2"), ""));
-            }
-            position++;
-        }
-        return new BannerConfig(Arrays.asList(texts), Arrays.asList(images));
+        return new BannerConfig(texts, images);
     }
 }

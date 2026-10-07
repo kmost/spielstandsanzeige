@@ -125,7 +125,10 @@ den laufenden Spielstand (`game.properties`), die Logdatei
 (`spielstandsanzeige.log`), dazu die aktive Anzeige-Konfiguration (`display.properties`: Farben +
 Header/Footer), Banner-Bilder (`banners/`), gespeicherte Farb-Themes
 (`themes/`) und die Hupen-Auswahl (`horn.properties`). Der Ordner kann
-gefahrlos gelöscht werden, um alles zurückzusetzen.
+gefahrlos gelöscht werden, um alles zurückzusetzen. Die Dateien tragen eine
+Schemaversion; ältere Dateien werden beim Laden automatisch umgewandelt. Stammt eine Datei
+von einer neueren Version der App (z. B. nach einem Downgrade), überschreibt die App sie
+nicht, sondern legt sie als `<datei>.schema<n>` beiseite und startet mit Standardwerten.
 
 ## Mitwirken
 

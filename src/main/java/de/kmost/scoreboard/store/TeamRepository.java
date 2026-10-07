@@ -11,7 +11,8 @@ import de.kmost.scoreboard.diagnostics.ProblemReporter;
 /**
  * Persistente Team-Datenbank: merkt sich alle genutzten Teamnamen.
  * Ablage unter ~/.spielstandsanzeige/teams.properties, damit die Daten
- * Releases und Neustarts überleben. Fehler beim Lesen/Schreiben werden
+ * Releases und Neustarts überleben. Teamnamen sind die Schlüssel der Datei; Schlüssel mit
+ * „_“-Präfix sind intern (Standard-Heimteam, Schemaversion) und nie Teamnamen. Fehler beim Lesen/Schreiben werden
  * gemeldet, blockieren aber nie den Spielbetrieb.
  */
 public class TeamRepository {
@@ -19,6 +20,9 @@ public class TeamRepository {
     private static final String PROPERTIES_FILE = "teams.properties";
     // interner Schlüssel, kein Teamname — „_“-Präfix wie beim Theme-Namen
     private static final String DEFAULT_HOME_KEY = "_defaultHome";
+    private static final String SCHEMA_KEY = "_schema";
+    /** Schema 1 = heutiges Format; Dateien ohne Eintrag (Version 0) haben dasselbe Format. */
+    private static final int SCHEMA = 1;
 
     private final Path baseDir;
     private final ProblemReporter reporter;
@@ -69,7 +73,8 @@ public class TeamRepository {
     /** Speichert das Team; leere Namen werden ignoriert. */
     public void saveTeam(String teamName) {
         String name = teamName == null ? "" : teamName.strip();
-        if (name.isEmpty() || teams.containsKey(name)) {
+        // „_“ am Anfang ist den internen Schlüsseln vorbehalten (Standard-Heimteam, Schema)
+        if (name.isEmpty() || name.startsWith("_") || teams.containsKey(name)) {
             return;
         }
         teams.setProperty(name, "");
@@ -86,13 +91,20 @@ public class TeamRepository {
             return;
         }
         try {
-            teams.putAll(PropertiesFiles.load(file));
+            Properties loaded = PropertiesFiles.load(file);
+            int schema = SchemaVersion.of(loaded, SCHEMA_KEY);
+            if (schema > SCHEMA) {
+                SchemaVersion.setAsideNewer(file, schema, reporter);
+                return;
+            }
+            teams.putAll(loaded);
         } catch (IOException e) {
             reporter.report("Team-Datenbank nicht lesbar", e);
         }
     }
 
     private void store() throws IOException {
+        SchemaVersion.stamp(teams, SCHEMA_KEY, SCHEMA);
         PropertiesFiles.store(baseDir.resolve(PROPERTIES_FILE), teams, "Teams der Spielstandsanzeige");
     }
 }

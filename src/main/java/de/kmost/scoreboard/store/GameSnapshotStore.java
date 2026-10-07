@@ -25,7 +25,10 @@ import de.kmost.scoreboard.model.TeamSide;
  * einem Absturz oder Neustart fortgesetzt werden kann. Geschrieben wird atomar (Temp-Datei,
  * dann Umbenennen), eine halb geschriebene Datei kann also nie die gute ersetzen. Eine
  * unlesbare oder unstimmige Datei blockiert den Start nie: sie wird beiseitegelegt
- * (game.properties.defekt) und {@link #load()} liefert leer.
+ * (game.properties.defekt) und {@link #load()} liefert leer. Das gilt auch für eine Sicherung
+ * einer neueren Schemaversion: Sie bleibt als .defekt erhalten, statt überschrieben zu werden;
+ * eine laufende Partie lässt sich nicht sinnvoll mit Standardwerten fortsetzen. Eine Datei ohne
+ * Schema hat es nie gegeben (die Sicherung trug von Anfang an eines).
  */
 public class GameSnapshotStore {
 
@@ -101,7 +104,7 @@ public class GameSnapshotStore {
 
     private static Properties toProperties(GameSnapshot s) {
         Properties props = new Properties();
-        props.setProperty("schema", String.valueOf(SCHEMA));
+        SchemaVersion.stamp(props, SCHEMA);
         props.setProperty("home", s.homeName());
         props.setProperty("guest", s.guestName());
         props.setProperty("mode", s.mode().name());
@@ -146,8 +149,13 @@ public class GameSnapshotStore {
     }
 
     private static GameSnapshot fromProperties(Properties props) {
-        if (number(props, "schema") != SCHEMA) {
-            throw new IllegalArgumentException("Unbekanntes Schema " + props.getProperty("schema"));
+        long schema = number(props, SchemaVersion.KEY);
+        if (schema > SCHEMA) {
+            throw new IllegalArgumentException("Gesicherte Partie stammt von einer neueren Version (Schema "
+                    + schema + ")");
+        }
+        if (schema != SCHEMA) {
+            throw new IllegalArgumentException("Unbekanntes Schema " + schema);
         }
         List<GameSnapshot.PenaltySnapshot> penalties = new ArrayList<>();
         int penaltyCount = (int) number(props, "penalty.count");
