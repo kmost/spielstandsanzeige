@@ -42,10 +42,10 @@ final class ShootoutPane {
                 },
                 shootout.winnerProperty(), shootout.nextThrowerProperty(), shootout.attempts()));
 
-        Button goalButton = new Button("⚽ Tor");
+        Button goalButton = new Button(ShootoutTable.GOAL_SYMBOL + " Tor");
         goalButton.getStyleClass().add("shootout-goal-button");
         goalButton.setOnAction(e -> state.recordShootoutAttempt(true));
-        Button missButton = new Button("❌ Kein Tor");
+        Button missButton = new Button(ShootoutTable.MISS_SYMBOL + " Kein Tor");
         missButton.getStyleClass().add("shootout-miss-button");
         missButton.setOnAction(e -> state.recordShootoutAttempt(false));
         // gleich große Knöpfe: „Kein Tor“ ist der breitere und behält seine natürliche
