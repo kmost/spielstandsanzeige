@@ -70,24 +70,23 @@ class StoreProblemReportingTest {
     }
 
     @Test
-    void themeRepositoryReportsWriteFailure() {
-        new ThemeRepository(blockedDir, reporter).saveTheme("Dunkel", Theme.defaults());
+    void themeStoreReportsWriteFailure() {
+        new ThemeStore(blockedDir, reporter).saveTheme("Dunkel", Theme.defaults());
         assertEquals(1, problems.size());
     }
 
     @Test
-    void themeRepositoryReportsBannerImageFailure() throws IOException {
+    void bannerImageStoreReportsFailure() throws IOException {
         File source = Files.writeString(tempDir.resolve("logo.png"), "png").toFile();
-        File stored = new ThemeRepository(blockedDir, reporter).storeBannerImage("header-1", source);
+        File stored = new BannerImageStore(blockedDir, reporter).store("header-1", source);
         assertEquals(null, stored);
         assertEquals(1, problems.size());
     }
 
     @Test
-    void themeRepositoryOnlyLogsBrokenValues() throws IOException {
+    void displaySettingsStoreOnlyLogsBrokenValues() throws IOException {
         Files.writeString(tempDir.resolve("display.properties"), "clock=keineFarbe\nfontScale=abc\n");
-        ThemeRepository repository = new ThemeRepository(tempDir, reporter);
-        repository.currentTheme();
+        SettingsStores.in(tempDir, reporter).display().load();
         assertTrue(problems.isEmpty(), "ungültige Einzelwerte stören den Nutzer nicht: " + problems);
     }
 

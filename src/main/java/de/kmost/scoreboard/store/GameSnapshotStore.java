@@ -2,9 +2,7 @@ package de.kmost.scoreboard.store;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -32,7 +30,6 @@ import de.kmost.scoreboard.model.TeamSide;
 public class GameSnapshotStore {
 
     private static final String FILE = "game.properties";
-    private static final String TEMP_FILE = "game.properties.tmp";
     private static final String BROKEN_FILE = "game.properties.defekt";
     private static final int SCHEMA = 1;
 
@@ -54,18 +51,9 @@ public class GameSnapshotStore {
 
     /** Sichert das Abbild; Fehler werden gemeldet, blockieren aber nie den Spielbetrieb. */
     public void save(GameSnapshot snapshot) {
-        Path temp = baseDir.resolve(TEMP_FILE);
         try {
-            Files.createDirectories(baseDir);
-            try (Writer writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8)) {
-                toProperties(snapshot).store(writer, "Gesichertes Spiel der Spielstandsanzeige");
-            }
-            try {
-                Files.move(temp, baseDir.resolve(FILE),
-                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(temp, baseDir.resolve(FILE), StandardCopyOption.REPLACE_EXISTING);
-            }
+            PropertiesFiles.store(baseDir.resolve(FILE), toProperties(snapshot),
+                    "Gesichertes Spiel der Spielstandsanzeige");
         } catch (IOException e) {
             reporter.report("Spielstand konnte nicht gesichert werden", e);
         }
@@ -92,7 +80,7 @@ public class GameSnapshotStore {
     public void delete() {
         try {
             Files.deleteIfExists(baseDir.resolve(FILE));
-            Files.deleteIfExists(baseDir.resolve(TEMP_FILE));
+            Files.deleteIfExists(PropertiesFiles.tempFor(baseDir.resolve(FILE)));
         } catch (IOException e) {
             reporter.report("Gesichertes Spiel konnte nicht gelöscht werden", e);
         }

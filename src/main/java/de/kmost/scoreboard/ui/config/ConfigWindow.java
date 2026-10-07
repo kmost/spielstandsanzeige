@@ -8,7 +8,10 @@ import java.util.function.Consumer;
 
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.DisplaySettingsStore.DisplaySettings;
+import de.kmost.scoreboard.store.HornSettingsStore.HornSettings;
+import de.kmost.scoreboard.store.SettingsStores;
+import de.kmost.scoreboard.store.ThemeStore;
 import de.kmost.scoreboard.ui.AppIcon;
 import de.kmost.scoreboard.ui.Dialogs;
 import de.kmost.scoreboard.ui.FxDialogs;
@@ -51,7 +54,7 @@ public class ConfigWindow {
 
     private final Stage stage = new Stage();
     private final DisplayWindow displayWindow;
-    private final ThemeRepository themeRepository;
+    private final SettingsStores stores;
     private final TeamRepository teamRepository;
     private final Horn horn;
     private final Dialogs dialogs;
@@ -67,29 +70,30 @@ public class ConfigWindow {
     private final BannerEditor footerEditor;
     private boolean updatingPickers; // beim programmatischen Setzen nicht je Farbe neu speichern
 
-    public ConfigWindow(Window owner, DisplayWindow displayWindow, ThemeRepository themeRepository,
+    public ConfigWindow(Window owner, DisplayWindow displayWindow, SettingsStores stores,
                         TeamRepository teamRepository, Horn horn, Consumer<Theme> onThemeChange,
                         Consumer<String> onDefaultHomeChange) {
-        this(owner, displayWindow, themeRepository, teamRepository, horn, onThemeChange,
+        this(owner, displayWindow, stores, teamRepository, horn, onThemeChange,
                 onDefaultHomeChange, new FxDialogs());
     }
 
-    public ConfigWindow(Window owner, DisplayWindow displayWindow, ThemeRepository themeRepository,
+    public ConfigWindow(Window owner, DisplayWindow displayWindow, SettingsStores stores,
                         TeamRepository teamRepository, Horn horn, Consumer<Theme> onThemeChange,
                         Consumer<String> onDefaultHomeChange, Dialogs dialogs) {
         this.dialogs = dialogs;
         this.displayWindow = displayWindow;
-        this.themeRepository = themeRepository;
+        this.stores = stores;
         this.teamRepository = teamRepository;
         this.horn = horn;
         this.onThemeChange = onThemeChange;
         this.onDefaultHomeChange = onDefaultHomeChange;
-        this.headerEditor = new BannerEditor("header", themeRepository.currentHeader(),
-                themeRepository, stage, this::applyBanners);
-        this.footerEditor = new BannerEditor("footer", themeRepository.currentFooter(),
-                themeRepository, stage, this::applyBanners);
+        DisplaySettings saved = stores.display().load();
+        this.headerEditor = new BannerEditor("header", saved.header(),
+                stores.banners(), stage, this::applyBanners);
+        this.footerEditor = new BannerEditor("footer", saved.footer(),
+                stores.banners(), stage, this::applyBanners);
 
-        Theme current = themeRepository.currentTheme();
+        Theme current = saved.theme();
         VBox content = new VBox(10, buildBannerPane(), buildScoreboardPane(current),
                 buildBackgroundPane(current), buildFontPane(current), buildHornPane(),
                 buildGameSetupPane(), buildThemePane());
@@ -227,10 +231,11 @@ public class ConfigWindow {
                 return null; // nicht editierbar
             }
         });
-        toneBox.setValue(Horn.toneOrDefault(themeRepository.hornTone()));
+        HornSettings savedHorn = stores.horn().load();
+        toneBox.setValue(Horn.toneOrDefault(savedHorn.tone()));
 
         Label fileLabel = new Label();
-        File storedFile = themeRepository.hornFile();
+        File storedFile = savedHorn.file();
         if (storedFile != null) {
             fileLabel.setText(storedFile.getName());
         }
@@ -238,7 +243,7 @@ public class ConfigWindow {
         toneBox.valueProperty().addListener((obs, oldTone, tone) -> {
             if (tone != null) {
                 horn.useTone(tone);
-                themeRepository.saveHorn(tone.name(), null);
+                stores.horn().save(tone.name(), null);
                 fileLabel.setText("");
                 horn.play();
             }
@@ -266,7 +271,7 @@ public class ConfigWindow {
             return;
         }
         if (horn.useFile(file)) {
-            themeRepository.saveHorn(toneBox.getValue().name(), file);
+            stores.horn().save(toneBox.getValue().name(), file);
             fileLabel.setText(file.getName());
             horn.play();
         } else {
@@ -372,7 +377,7 @@ public class ConfigWindow {
         themeBox.setEditable(true);
         themeBox.setPromptText("Theme-Name");
         themeBox.setPrefWidth(200);
-        themeBox.getItems().setAll(themeRepository.themeNames());
+        themeBox.getItems().setAll(stores.themes().themeNames());
 
         Button loadButton = new Button("📂 Laden");
         loadButton.setOnAction(e -> loadTheme());
@@ -396,7 +401,7 @@ public class ConfigWindow {
         if (name.isEmpty()) {
             return;
         }
-        Theme theme = themeRepository.loadTheme(name);
+        Theme theme = stores.themes().loadTheme(name);
         if (theme == null) {
             warn("Theme „" + name + "“ wurde nicht gefunden.");
             return;
@@ -410,7 +415,7 @@ public class ConfigWindow {
             warn("Bitte zuerst einen Theme-Namen eingeben.");
             return;
         }
-        ThemeRepository.SaveResult result = themeRepository.saveTheme(name, pickedTheme());
+        ThemeStore.SaveResult result = stores.themes().saveTheme(name, pickedTheme());
         switch (result.status()) {
             case SAVED -> refreshThemeNames(name);
             case NAME_CONFLICT -> warn("Das Theme „" + name + "“ kann nicht gespeichert werden: "
@@ -427,7 +432,7 @@ public class ConfigWindow {
             return;
         }
         if (dialogs.confirm("Theme „" + name + "“ wirklich löschen?")) {
-            themeRepository.deleteTheme(name);
+            stores.themes().deleteTheme(name);
             refreshThemeNames(null);
         }
     }
@@ -440,7 +445,7 @@ public class ConfigWindow {
     }
 
     private void refreshThemeNames(String select) {
-        themeBox.getItems().setAll(themeRepository.themeNames());
+        themeBox.getItems().setAll(stores.themes().themeNames());
         if (select != null) {
             themeBox.getSelectionModel().select(select);
         } else {
@@ -479,7 +484,7 @@ public class ConfigWindow {
     }
 
     private void persistCurrent() {
-        themeRepository.saveCurrent(pickedTheme(), headerEditor.config(), footerEditor.config());
+        stores.display().save(pickedTheme(), headerEditor.config(), footerEditor.config());
     }
 
     private void warn(String message) {

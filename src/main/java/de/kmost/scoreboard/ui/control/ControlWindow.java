@@ -9,7 +9,9 @@ import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.GameAutosave;
 import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.DisplaySettingsStore.DisplaySettings;
+import de.kmost.scoreboard.store.HornSettingsStore.HornSettings;
+import de.kmost.scoreboard.store.SettingsStores;
 import de.kmost.scoreboard.ui.AppIcon;
 import de.kmost.scoreboard.ui.Dialogs;
 import de.kmost.scoreboard.ui.FxDialogs;
@@ -45,46 +47,48 @@ public class ControlWindow {
     private final StatusBar statusBar = new StatusBar(reporter);
 
     private final TeamRepository teamRepository;
-    private final ThemeRepository themeRepository;
+    private final SettingsStores stores;
     private final GameSnapshotStore snapshotStore;
     private final SetupPane setupPane;
     private GameAutosave autosave;
     private ConfigWindow configWindow;
 
     public ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
-                         ThemeRepository themeRepository, GameSnapshotStore snapshotStore) {
-        this(stage, horn, teamRepository, themeRepository, snapshotStore, 940, 700);
+                         SettingsStores stores, GameSnapshotStore snapshotStore) {
+        this(stage, horn, teamRepository, stores, snapshotStore, 940, 700);
     }
 
     // Größe nur für die Offscreen-Vorschau in Tests wählbar
     ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
-                  ThemeRepository themeRepository, GameSnapshotStore snapshotStore,
+                  SettingsStores stores, GameSnapshotStore snapshotStore,
                   double width, double height) {
-        this(stage, horn, teamRepository, themeRepository, snapshotStore, width, height,
+        this(stage, horn, teamRepository, stores, snapshotStore, width, height,
                 new FxDialogs(), Platform::exit);
     }
 
     // Dialoge und Beenden-Aktion sind für Tests austauschbar (vorgegebene Antworten, kein Platform.exit)
     ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
-                  ThemeRepository themeRepository, GameSnapshotStore snapshotStore,
+                  SettingsStores stores, GameSnapshotStore snapshotStore,
                   double width, double height, Dialogs dialogs, Runnable exitAction) {
         this.stage = stage;
         this.horn = horn;
         this.dialogs = dialogs;
         this.exitAction = exitAction;
         this.teamRepository = teamRepository;
-        this.themeRepository = themeRepository;
+        this.stores = stores;
         this.snapshotStore = snapshotStore;
         root.setBottom(statusBar.node());
         this.displayWindow = new DisplayWindow(gameState);
-        displayWindow.applyTheme(themeRepository.currentTheme());
-        displayWindow.headerBannerProperty().set(themeRepository.currentHeader());
-        displayWindow.footerBannerProperty().set(themeRepository.currentFooter());
-        applyTheme(themeRepository.currentTheme());
+        DisplaySettings display = stores.display().load();
+        displayWindow.applyTheme(display.theme());
+        displayWindow.headerBannerProperty().set(display.header());
+        displayWindow.footerBannerProperty().set(display.footer());
+        applyTheme(display.theme());
         // gespeicherte Hupen-Auswahl wiederherstellen; eine nicht mehr ladbare
         // externe Datei fällt still auf den gespeicherten eingebauten Ton zurück
-        if (!horn.useFile(themeRepository.hornFile())) {
-            horn.useTone(Horn.toneOrDefault(themeRepository.hornTone()));
+        HornSettings savedHorn = stores.horn().load();
+        if (!horn.useFile(savedHorn.file())) {
+            horn.useTone(Horn.toneOrDefault(savedHorn.tone()));
         }
 
         setupPane = new SetupPane(teamRepository, displayWindow, this::createGame, this::openConfig);
@@ -165,7 +169,7 @@ public class ControlWindow {
 
     private void openConfig() {
         if (configWindow == null) {
-            configWindow = new ConfigWindow(stage, displayWindow, themeRepository,
+            configWindow = new ConfigWindow(stage, displayWindow, stores,
                     teamRepository, horn, this::applyTheme, setupPane::applyDefaultHomeTeam, dialogs);
         }
         configWindow.show();

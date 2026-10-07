@@ -22,7 +22,8 @@ import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.model.GameState;
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.SettingsStores;
+import de.kmost.scoreboard.store.ThemeStore;
 import de.kmost.scoreboard.ui.FakeDialogs;
 import de.kmost.scoreboard.ui.FxTestSupport;
 import de.kmost.scoreboard.ui.display.DisplayWindow;
@@ -38,7 +39,7 @@ class ConfigWindowTest {
     Path dir;
 
     private FakeDialogs dialogs;
-    private ThemeRepository themes;
+    private ThemeStore themes;
     private ConfigWindow config;
     private final AtomicInteger themeChanges = new AtomicInteger();
 
@@ -50,9 +51,10 @@ class ConfigWindowTest {
     @BeforeEach
     void setUp() {
         dialogs = new FakeDialogs();
-        themes = new ThemeRepository(dir);
+        SettingsStores stores = SettingsStores.in(dir);
+        themes = stores.themes();
         config = fx(() -> new ConfigWindow(new Stage(), new DisplayWindow(new SimpleObjectProperty<GameState>()),
-                themes, new TeamRepository(dir), new Horn(new ProblemReporter(dir.resolve("horn.log"))), theme -> themeChanges.incrementAndGet(),
+                stores, new TeamRepository(dir), new Horn(new ProblemReporter(dir.resolve("horn.log"))), theme -> themeChanges.incrementAndGet(),
                 name -> { }, dialogs));
     }
 
