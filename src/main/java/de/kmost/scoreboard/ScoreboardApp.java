@@ -1,7 +1,7 @@
 package de.kmost.scoreboard;
 
-import de.kmost.scoreboard.model.GameState;
 import de.kmost.scoreboard.sound.Horn;
+import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.control.ControlWindow;
@@ -17,14 +17,11 @@ public class ScoreboardApp extends Application {
     public void start(Stage stage) {
         Horn horn = new Horn();
         ControlWindow control = new ControlWindow(stage, horn, new TeamRepository(),
-                new ThemeRepository());
+                new ThemeRepository(), new GameSnapshotStore());
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                GameState state = control.gameState();
-                if (state != null) {
-                    state.tick();
-                }
+                control.tick();
             }
         };
         timer.start();

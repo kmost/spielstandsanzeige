@@ -16,4 +16,9 @@ public record SportProfile(String name,
     public static final SportProfile HANDBALL = new SportProfile(
             "Handball", Duration.ofMinutes(30), Duration.ofMinutes(5),
             Duration.ofMinutes(2), Duration.ofMinutes(1), 3);
+
+    /** Profil zum gespeicherten Namen; {@code null}, wenn die Sportart unbekannt ist. */
+    public static SportProfile byName(String name) {
+        return HANDBALL.name().equals(name) ? HANDBALL : null;
+    }
 }

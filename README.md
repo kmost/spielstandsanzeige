@@ -64,6 +64,12 @@ mvn javafx:run
    angezeigt, aber nicht blockiert — das Kampfgericht entscheidet.
 6. **„Spiel abbrechen“** (mit Rückfrage) beendet das Spiel sofort und endgültig —
    die Uhr stoppt bei der aktuellen Zeit, ein neues Spiel kann direkt angelegt werden.
+   **Spielstand-Sicherung:** Der laufende Spielstand (Uhr, Tore, Strafen, Timeouts,
+   7-m-Werfen) wird atomar unter `~/.spielstandsanzeige/game.properties` gesichert.
+   Nach Absturz oder Neustart bietet die App an, das Spiel fortzusetzen (Uhr
+   pausiert auf der letzten Zeit); das Schließen des Fensters fragt bei laufendem
+   Spiel nach. Beendete oder abgebrochene Spiele werden nicht gesichert, eine
+   defekte Sicherung blockiert den Start nie.
 7. **„Konfiguration…“** öffnet das Konfigurationsfenster der Anzeige: ein **Header**
    (oben) und ein **Footer** (unten), jeweils ein festes Raster aus bis zu 6 Texten
    und 5 Bildern im Wechsel (Text 1, Bild 1, Text 2, …, Bild 5, Text 6) — leere

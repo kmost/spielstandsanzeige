@@ -14,6 +14,7 @@ import de.kmost.scoreboard.model.GameState;
 import de.kmost.scoreboard.model.SportProfile;
 import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.sound.Horn;
+import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.display.DisplayPreview;
@@ -38,6 +39,7 @@ public class ControlPreview extends Application {
         // Fenstergröße über -Dpreview.width/-Dpreview.height wählbar
         ControlWindow control = new ControlWindow(primaryStage, new Horn(),
                 new TeamRepository(tempDir), new ThemeRepository(tempDir),
+                new GameSnapshotStore(tempDir),
                 Double.parseDouble(System.getProperty("preview.width", "940")),
                 Double.parseDouble(System.getProperty("preview.height", "700")));
 

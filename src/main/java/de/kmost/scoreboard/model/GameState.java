@@ -1,5 +1,8 @@
 package de.kmost.scoreboard.model;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.LongSupplier;
 
 import javafx.beans.property.IntegerProperty;
@@ -174,6 +177,100 @@ public class GameState {
 
     public void setOnTimeoutEnd(Runnable onTimeoutEnd) {
         this.onTimeoutEnd = onTimeoutEnd;
+    }
+
+    /**
+     * Das Spiel ist endgültig vorbei: Abschnittsende erreicht (oder abgebrochen) und weder
+     * Verlängerung noch 7-m-Werfen stehen noch aus. Bei Gleichstand nach dem regulären
+     * Spielende bleibt das Spiel offen, denn das Kampfgericht kann noch verlängern oder werfen
+     * lassen; ein 7-m-Werfen ist erst mit seinem Sieger vorbei.
+     */
+    public boolean isOver() {
+        Shootout current = shootout.get();
+        if (current != null) {
+            return current.winnerProperty().get() != null;
+        }
+        return clock.phaseProperty().get() == GameClock.Phase.FINISHED
+                && (!clock.canStartOvertime() || homeScore.get() != guestScore.get());
+    }
+
+    /** Abbild des Spiels zum Sichern; siehe {@link GameSnapshot}. */
+    public GameSnapshot snapshot() {
+        List<GameSnapshot.PenaltySnapshot> penaltySnapshots = new ArrayList<>();
+        for (TeamSide side : TeamSide.values()) {
+            for (PenaltyTimer timer : penalties(side)) {
+                penaltySnapshots.add(new GameSnapshot.PenaltySnapshot(side, timer.playerNumber(),
+                        timer.startElapsedMillis(), timer.baseDurationMillis(), timer.isExtended()));
+            }
+        }
+        Shootout current = shootout.get();
+        return new GameSnapshot(config.homeName(), config.guestName(), config.mode(),
+                config.periodMillis(), config.direction(), config.overtimeFormat(),
+                config.overtimeMillis(), config.profile().name(),
+                clock.phaseProperty().get(), clock.periodProperty().get(), clock.overtimeCount(),
+                clock.elapsedMillisProperty().get(),
+                homeScore.get(), guestScore.get(),
+                homeTimeoutsUsed.get(), guestTimeoutsUsed.get(),
+                List.copyOf(penaltySnapshots),
+                current == null ? null : current.startingTeam(),
+                current == null ? List.of() : List.copyOf(current.attempts()));
+    }
+
+    /**
+     * Stellt ein gesichertes Spiel wieder her. Eine laufende Uhr kommt pausiert zurück, ein
+     * Team-Timeout läuft nicht weiter. Unstimmige Abbilder werden mit einer
+     * {@link IllegalArgumentException} abgelehnt.
+     */
+    public static GameState restore(GameSnapshot snapshot, LongSupplier nanoSource) {
+        SportProfile profile = SportProfile.byName(snapshot.sport());
+        if (profile == null) {
+            throw new IllegalArgumentException("Unbekannte Sportart: " + snapshot.sport());
+        }
+        if (snapshot.homeName() == null || snapshot.guestName() == null || snapshot.mode() == null
+                || snapshot.direction() == null || snapshot.overtimeFormat() == null
+                || snapshot.periodMillis() <= 0 || snapshot.overtimeMillis() <= 0
+                || snapshot.homeScore() < 0 || snapshot.guestScore() < 0
+                || snapshot.homeTimeoutsUsed() < 0 || snapshot.guestTimeoutsUsed() < 0) {
+            throw new IllegalArgumentException("Unvollständiges oder ungültiges Spiel-Abbild");
+        }
+        GameConfig config = new GameConfig(snapshot.homeName(), snapshot.guestName(),
+                snapshot.mode(), Duration.ofMillis(snapshot.periodMillis()), snapshot.direction(),
+                snapshot.overtimeFormat(), Duration.ofMillis(snapshot.overtimeMillis()), profile);
+        GameState state = new GameState(config, nanoSource);
+        state.clock.restore(snapshot.phase(), snapshot.period(), snapshot.overtimes(),
+                snapshot.elapsedMillis());
+        state.homeScore.set(snapshot.homeScore());
+        state.guestScore.set(snapshot.guestScore());
+        state.homeTimeoutsUsed.set(snapshot.homeTimeoutsUsed());
+        state.guestTimeoutsUsed.set(snapshot.guestTimeoutsUsed());
+        long elapsed = snapshot.elapsedMillis();
+        for (GameSnapshot.PenaltySnapshot penalty : snapshot.penalties()) {
+            if (penalty.side() == null || penalty.startElapsedMillis() < 0
+                    || penalty.durationMillis() <= 0) {
+                throw new IllegalArgumentException("Ungültige Zeitstrafe im Spiel-Abbild");
+            }
+            PenaltyTimer timer = new PenaltyTimer(penalty.side(), penalty.playerNumber(),
+                    penalty.startElapsedMillis(), penalty.durationMillis());
+            if (penalty.extended()) {
+                timer.extend();
+            }
+            timer.update(elapsed);
+            state.penalties(penalty.side()).add(timer);
+        }
+        if (snapshot.shootoutStart() != null) {
+            Shootout restored = new Shootout(snapshot.shootoutStart());
+            for (Shootout.Attempt attempt : snapshot.shootoutAttempts()) {
+                if (restored.winnerProperty().get() != null
+                        || restored.nextThrowerProperty().get() != attempt.side()) {
+                    throw new IllegalArgumentException("Wurffolge des 7-m-Werfens ist unstimmig");
+                }
+                restored.record(attempt.goal());
+            }
+            state.shootout.set(restored);
+        } else if (!snapshot.shootoutAttempts().isEmpty()) {
+            throw new IllegalArgumentException("Würfe ohne 7-m-Werfen im Spiel-Abbild");
+        }
+        return state;
     }
 
     public void tick() {
