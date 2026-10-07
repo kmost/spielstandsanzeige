@@ -35,17 +35,20 @@ import javafx.stage.Screen;
 /** Spiel-Setup oben in der Konsole: Teams, Spielmodus, Verlängerung und Steuerung der Anzeige. */
 final class SetupPane {
 
+    /** Die App spielt Handball; eine Sportart-Auswahl gibt es bewusst nicht (siehe CONTRIBUTING.md). */
+    private static final SportProfile SPORT = SportProfile.HANDBALL;
+
     private final TeamRepository teamRepository;
     private final DisplayWindow displayWindow;
     private final ObservableList<String> knownTeams = FXCollections.observableArrayList();
     private final Map<TeamSide, TeamNamePicker> teamPickers = new EnumMap<>(TeamSide.class);
     private final ComboBox<GameMode> modeBox = new ComboBox<>();
     private final Spinner<Integer> minutesSpinner =
-            new Spinner<>(1, 120, (int) SportProfile.HANDBALL.defaultPeriodDuration().toMinutes());
+            new Spinner<>(1, 120, (int) SPORT.defaultPeriodDuration().toMinutes());
     private final ComboBox<ClockDirection> directionBox = new ComboBox<>();
     private final ComboBox<OvertimeFormat> overtimeFormatBox = new ComboBox<>();
     private final Spinner<Integer> overtimeMinutesSpinner = new Spinner<>(1, 60,
-            (int) SportProfile.HANDBALL.defaultOvertimePeriodDuration().toMinutes());
+            (int) SPORT.defaultOvertimePeriodDuration().toMinutes());
     private final ComboBox<Screen> screenBox = new ComboBox<>();
     /** Konfiguriertes Standard-Heimteam; steht beim Setup im Heim-Feld vorbelegt. */
     private String defaultHomeTeam;
@@ -183,7 +186,7 @@ final class SetupPane {
                 directionBox.getValue(),
                 overtimeFormatBox.getValue(),
                 Duration.ofMinutes(overtimeMinutesSpinner.getValue()),
-                SportProfile.HANDBALL);
+                SPORT);
     }
 
     private String teamName(TeamSide side) {

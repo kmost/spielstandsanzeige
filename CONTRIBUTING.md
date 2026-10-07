@@ -84,11 +84,23 @@ mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
   generiert statt als Audio-Asset mitgeliefert).
 - Vor dem PR: `mvn verify` muss grün sein (Tests und Mindest-Abdeckung).
 
-## Neue Sportarten
+## Sportarten
 
-Vorgabewerte (Periodendauer, Strafzeit, Timeout) stehen als Konstanten in
-`SportProfile.java` — eine neue Sportart ist zunächst nur eine weitere
-Konstante plus Auswahl im Setup.
+Die App ist eine Handball-Anzeige. `SportProfile.HANDBALL` (Periodendauer, Verlängerung,
+Strafzeit, Team-Timeout) ist das einzige Profil; das Setup bietet keine Sportart-Auswahl,
+und viele Stellen setzen Handball voraus. Eine zweite Sportart wäre deshalb mehr als eine
+weitere Konstante. Nötig wären:
+
+- ein weiteres Profil in `SportProfile` samt `byName` (gesicherte Partien speichern den
+  Namen) und eine Auswahl im Setup (`SetupPane` nutzt heute fest `SportProfile.HANDBALL`,
+  auch für die Vorgaben der Zeit-Felder);
+- Zeitstrafen mit mehreren Stufen: heute gibt es eine Dauer, und „→ 4 Min“ verdoppelt sie
+  (`PenaltyTimer`, `PenaltyList`);
+- Texte aus dem Profil statt fest im Code: „2 Minuten“ (`TeamControls`), „→ 4 Min“
+  (`PenaltyList`), „7-m-Werfen“ (`ClockPane`, `ShootoutPane`, Anzeige) und die Abschnittsnamen
+  aus `GameMode`; alle Texte sind fest Deutsch, es gibt kein `ResourceBundle`;
+- Regeln, die nur Handball kennt: das 7-m-Werfen nach Gleichstand und die Anzahl der
+  Team-Timeouts.
 
 ## Release
 
