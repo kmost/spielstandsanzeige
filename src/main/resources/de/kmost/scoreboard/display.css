@@ -62,7 +62,7 @@
 }
 
 /* Wurf-Liste des 7-m-Werfens (Mittelspalte): Rundennummern dezent, Zeilenbeschriftung
-   in Statusfarbe, Treffer ● / Fehlwurf ○ in der Teamnamen-Farbe. Schriftgröße der Liste
+   in Statusfarbe, Treffer ⚽ / Fehlwurf ✋ in der Teamnamen-Farbe. Schriftgröße der Liste
    kommt aus DisplayWindow (em der Basis), die Klassen skalieren relativ dazu */
 .shootout-number {
     -fx-text-fill: -color-status;

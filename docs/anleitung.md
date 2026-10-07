@@ -107,8 +107,9 @@ nötig.
   Siegermeldung übernimmt das Programm. Jeder Treffer zählt aufs
   Endergebnis. Auf der Publikumsanzeige wird die Uhr dabei halb so hoch, und
   darunter erscheint in der Mitte eine Liste der Würfe (Rundennummern, Zeilen
-  „Heim“ und „Gast“, ● Tor, ○ Fehlwurf — dieselbe Tabelle wie im
-  Kampfgericht, höchstens 15 Runden). Sie bleibt nach der Siegermeldung
+  „Heim“ und „Gast“, ⚽ Tor, ✋ Fehlwurf — dieselbe Tabelle wie im
+  Kampfgericht; die ersten fünf Runden stehen von Anfang an darin, höchstens
+  15 Runden). Sie bleibt nach der Siegermeldung
   stehen. Eine Fehleingabe machen Sie mit **„↩ Wurf zurücknehmen“**
   rückgängig.
 - Soll das **Unentschieden stehen bleiben**, beenden Sie das Spiel mit

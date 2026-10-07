@@ -140,11 +140,11 @@ public class DisplayPreview extends Application {
             }
             return;
         }
-        state.recordShootoutAttempt(true);  // Heim ●
-        state.recordShootoutAttempt(false); // Gast ○
-        state.recordShootoutAttempt(true);  // Heim ●
-        state.recordShootoutAttempt(true);  // Gast ●
-        state.recordShootoutAttempt(false); // Heim ○
+        state.recordShootoutAttempt(true);  // Heim ⚽
+        state.recordShootoutAttempt(false); // Gast ✋
+        state.recordShootoutAttempt(true);  // Heim ⚽
+        state.recordShootoutAttempt(true);  // Gast ⚽
+        state.recordShootoutAttempt(false); // Heim ✋
     }
 
     private static void finishRegulation(GameState state, GameConfig config) {
