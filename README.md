@@ -9,7 +9,7 @@
 > self-contained Windows installer (no Java required). The documentation below
 > is in German.
 
-JavaFX-Desktopanwendung für Handball (erweiterbar für andere Sportarten) mit zwei Fenstern:
+JavaFX-Desktopanwendung für Handball mit zwei Fenstern:
 
 - **Kampfgericht-Konsole** — Spiel-Setup und Steuerung (Uhr, Tore, Zeitstrafen,
   Team-Timeouts, Hupe)
@@ -114,9 +114,9 @@ die SignPath Foundation signieren zu lassen:
 
 ## Andere Sportarten
 
-Vorgabewerte (Periodendauer, Strafzeitlänge) stehen in
-`src/main/java/de/kmost/scoreboard/model/SportProfile.java` — weitere Sportarten
-werden dort als zusätzliche Konstanten ergänzt.
+Die App ist auf Handball ausgelegt (Strafzeiten, 7-m-Werfen, Team-Timeouts). Für andere
+Sportarten wäre ein Umbau nötig; was dafür fehlt, steht in
+[CONTRIBUTING.md](CONTRIBUTING.md#sportarten).
 
 ## Gespeicherte Daten
 
