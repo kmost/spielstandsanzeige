@@ -105,7 +105,10 @@ nötig.
 Aussehen der Publikumsanzeige anpassen: alle **Farben** und die **Schriftart**,
 die **Schriftgrößen** von Uhr, Toren und Teamnamen per Regler sowie ein
 **Header und Footer** mit eigenen Texten und Bildern — zum Beispiel
-Vereinslogo, Hallenname oder Sponsoren. Auch der **Hupenton** ist wählbar
+Vereinslogo, Hallenname oder Sponsoren. Bilder lassen sich aus einer Datei oder
+per **„🌐 URL…“** aus dem Internet übernehmen; das Laden läuft im Hintergrund
+(mit „Abbrechen“), erlaubt sind nur **https**-Adressen und Bilder bis 10 MB im
+Format PNG, JPG oder GIF. Auch der **Hupenton** ist wählbar
 (fünf eingebaute Töne oder eine eigene Audiodatei). Jede Änderung ist sofort
 auf der Anzeige sichtbar und bleibt auch nach einem Neustart des Programms
 erhalten. Eine fertige Gestaltung kann als benanntes **Theme** gespeichert und

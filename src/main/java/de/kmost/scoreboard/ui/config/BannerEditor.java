@@ -2,18 +2,23 @@ package de.kmost.scoreboard.ui.config;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 
 import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.store.LogoDownloader;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.BannerConfig;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.GridPane;
@@ -112,21 +117,84 @@ final class BannerEditor {
     private void chooseUrl(int index) {
         TextInputDialog dialog = new TextInputDialog("https://");
         dialog.setTitle("Bild aus dem Internet");
-        dialog.setHeaderText("Bild-URL für " + ("header".equals(slotPrefix) ? "Header" : "Footer"));
+        dialog.setHeaderText("Bild-URL für " + ("header".equals(slotPrefix) ? "Header" : "Footer")
+                + " (nur https, höchstens 10 MB)");
         dialog.setContentText("URL:");
         dialog.showAndWait().ifPresent(url -> {
             if (url.isBlank() || url.strip().equals("https://")) {
                 return;
             }
-            try {
-                storeImage(index, LogoDownloader.download(url));
-            } catch (IOException | IllegalArgumentException ex) {
-                ProblemReporter.shared().log("Bild-Download fehlgeschlagen: " + url.strip(), ex);
-                warn("Bild konnte nicht geladen werden: " + ex.getMessage());
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
+            downloadInBackground(index, url.strip());
+        });
+    }
+
+    /**
+     * Lädt das Bild in einem Hintergrund-Task; solange es läuft, zeigt ein kleiner
+     * Wartedialog mit „Abbrechen“ den Zustand, die Bedienung bleibt nicht blockiert.
+     */
+    private void downloadInBackground(int index, String url) {
+        LogoDownloader downloader = new LogoDownloader();
+        Task<File> task = new Task<>() {
+            @Override
+            protected File call() throws IOException {
+                File file = downloader.download(url);
+                if (isCancelled()) { // Abbruch kam, als der Download schon fertig war
+                    Files.deleteIfExists(file.toPath());
+                    return null;
+                }
+                return file;
+            }
+        };
+
+        Dialog<Void> waiting = new Dialog<>();
+        waiting.initOwner(owner);
+        waiting.setTitle("Bild aus dem Internet");
+        waiting.setHeaderText(null);
+        ProgressIndicator spinner = new ProgressIndicator();
+        spinner.setPrefSize(32, 32);
+        HBox content = new HBox(12, spinner, new Label("Bild wird geladen …"));
+        content.setAlignment(Pos.CENTER_LEFT);
+        waiting.getDialogPane().setContent(content);
+        waiting.getDialogPane().getButtonTypes().add(ButtonType.CANCEL);
+        // Schließen oder „Abbrechen“ bricht den laufenden Download ab (nach Ende wirkungslos)
+        waiting.setOnHidden(e -> {
+            if (task.isRunning()) {
+                task.cancel(true);
+                downloader.cancel();
             }
         });
+
+        task.setOnSucceeded(e -> {
+            waiting.close();
+            File file = task.getValue();
+            if (file == null) {
+                return;
+            }
+            try {
+                storeImage(index, file);
+            } finally {
+                deleteQuietly(file);
+            }
+        });
+        task.setOnFailed(e -> {
+            waiting.close();
+            Throwable error = task.getException();
+            ProblemReporter.shared().log("Bild-Download fehlgeschlagen: " + url, error);
+            warn("Bild konnte nicht geladen werden: " + error.getMessage());
+        });
+
+        Thread thread = new Thread(task, "bild-download");
+        thread.setDaemon(true);
+        thread.start();
+        waiting.show();
+    }
+
+    private static void deleteQuietly(File file) {
+        try {
+            Files.deleteIfExists(file.toPath());
+        } catch (IOException e) {
+            ProblemReporter.shared().log("Temporäre Bilddatei nicht gelöscht: " + file, e);
+        }
     }
 
     /** Kopiert das Bild in die Datenbank und übernimmt es in den Slot. */
