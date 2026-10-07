@@ -351,7 +351,7 @@ class ControlWindowTest {
         click("⚽ Tor");
         assertEquals(1, state.scoreProperty(TeamSide.GUEST).get());
         assertFalse(find("↩ Wurf zurücknehmen").isDisabled());
-        click("❌ Kein Tor");
+        click("✋ Kein Tor");
         click("↩ Wurf zurücknehmen");
         assertEquals(1, state.shootoutProperty().get().attempts().size());
         click("↩ Wurf zurücknehmen");
@@ -367,11 +367,11 @@ class ControlWindowTest {
         click("🥅 7-m-Werfen…");
         // Heim trifft immer, Gast nie → der Sieger steht nach wenigen Würfen fest
         for (int i = 0; i < 20 && state.shootoutProperty().get().winnerProperty().get() == null; i++) {
-            click(i % 2 == 0 ? "⚽ Tor" : "❌ Kein Tor");
+            click(i % 2 == 0 ? "⚽ Tor" : "✋ Kein Tor");
         }
         assertEquals(TeamSide.HOME, state.shootoutProperty().get().winnerProperty().get());
         assertTrue(find("⚽ Tor").isDisabled());
-        assertTrue(find("❌ Kein Tor").isDisabled());
+        assertTrue(find("✋ Kein Tor").isDisabled());
         assertTrue(fx(() -> all(root(), Label.class).stream()
                 .anyMatch(l -> l.getText() != null && l.getText().startsWith("🏆 Sieger: Heim"))));
         // die Phasenzeile unter der Uhr folgt dem entschiedenen 7-m-Werfen

@@ -27,11 +27,11 @@ public final class ShootoutTable {
     /** Sichtbare Runden; ältere Runden verlassen die Tabelle per „…“. */
     public static final int VISIBLE_ROUNDS = 15;
 
-    /** Treffer: Ball. */
-    static final String GOAL_SYMBOL = "⚽";
+    /** Treffer: Ball — auch auf dem Knopf „Tor“ der Konsole. */
+    public static final String GOAL_SYMBOL = "⚽";
 
-    /** Fehlwurf: Hand (der Torwart hat gehalten). */
-    static final String MISS_SYMBOL = "✋";
+    /** Fehlwurf: Hand (der Torwart hat gehalten) — auch auf dem Knopf „Kein Tor“ der Konsole. */
+    public static final String MISS_SYMBOL = "✋";
 
     private final Shootout shootout;
     private final String numberStyle;
