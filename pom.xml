@@ -31,7 +31,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
-        <javafx.version>25.0.1</javafx.version>
+        <javafx.version>27</javafx.version>
         <!-- JaCoCo trägt hier seinen Agenten ein; leer, solange er nicht läuft -->
         <argLine></argLine>
         <!-- UI-Tests (@Tag("ui")) brauchen ein Display (oder xvfb); mit
