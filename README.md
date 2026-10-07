@@ -31,64 +31,11 @@ mvn javafx:run
 
 ## Bedienung
 
-1. In der Konsole Teamnamen (Dropdown mit Textfilter über alle bereits genutzten
-   Teams, freie Eingabe für neue), Modus (eine Spielzeit / zwei Halbzeiten /
-   drei Drittel), Periodendauer, Uhrrichtung (vorwärts/rückwärts) und das
-   Verlängerungs-Format (eine Spielzeit oder zwei Halbzeiten, Dauer je
-   Abschnitt) einstellen, dann **„Spiel anlegen“**. Teamnamen werden unter
-   `~/.spielstandsanzeige/` gespeichert und beim nächsten Spiel automatisch
-   vorgeschlagen.
-2. Zielbildschirm wählen und **„Anzeige öffnen“** (auf einem zweiten Bildschirm
-   automatisch im Vollbild; **„Vollbild umschalten“** bzw. ESC am Anzeigefenster).
-3. **Start / Pause / Fortsetzen** steuert die Uhr; bei Halbzeit- und Spielende stoppt
-   sie automatisch und die Hupe ertönt. Die 2. Halbzeit wird manuell gestartet.
-   Nach regulärem Spielende bietet derselbe Knopf **„Verlängerung starten“** an —
-   beliebig oft, die Uhr zählt kumulativ weiter (z. B. 60:00 → 70:00). Muss danach
-   ein Sieger her, führt **„7-m-Werfen…“** durch das Werfen: Startteam wählen,
-   dann nur noch „Tor“/„Kein Tor“ — Reihenfolge, vorzeitiges Ende, Sudden Death
-   (die andere Mannschaft beginnt) und Siegermeldung übernimmt die App; Treffer
-   zählen aufs Endergebnis, Fehleingaben nimmt „Wurf zurücknehmen“ zurück. Soll das
-   Unentschieden stehen bleiben, beendet **„Beenden“** (mit Rückfrage) das Spiel.
-   **„Zeit stellen…“** korrigiert die Spielzeit manuell (Eingabe im Anzeigeformat
-   der Uhr, begrenzt auf die aktuelle Periode) — auch aus der Halbzeitpause
-   heraus, falls die Uhr zu spät gestoppt wurde.
-4. Pro Team: **+1 Tor / −1 Tor** (nie unter 0) und **„2 Minuten“** für Zeitstrafen —
-   optional mit Trikotnummer (Feld „Nr.“). Zeitstrafen sind an die Spieluhr gekoppelt
-   (pausieren mit), verschwinden bei Ablauf automatisch und lassen sich am
-   Kampfgericht mit einem einfachen Klick auf den Counter abbrechen — genau wie
-   ein laufendes Team-Timeout. Über „→ 4 Min“ neben der Strafe lässt sie sich auf
-   4 Minuten verlängern.
-5. **Team-Timeout** pro Team: hält die Spieluhr an und startet einen 1-Minuten-Countdown
-   in Echtzeit (Hupe bei Ablauf, vorzeitig beendbar). Das Spiel bleibt unterbrochen,
-   bis das Kampfgericht es mit **„Fortsetzen“** wieder startet — das beendet auch ein
-   noch laufendes Timeout. Genutzte Timeouts werden als Punkte (●●○, 3 pro Spiel)
-   angezeigt, aber nicht blockiert — das Kampfgericht entscheidet.
-6. **„Spiel abbrechen“** (mit Rückfrage) beendet das Spiel sofort und endgültig —
-   die Uhr stoppt bei der aktuellen Zeit, ein neues Spiel kann direkt angelegt werden.
-   **Spielstand-Sicherung:** Der laufende Spielstand (Uhr, Tore, Strafen, Timeouts,
-   7-m-Werfen) wird atomar unter `~/.spielstandsanzeige/game.properties` gesichert.
-   Nach Absturz oder Neustart bietet die App an, das Spiel fortzusetzen (Uhr
-   pausiert auf der letzten Zeit); das Schließen des Fensters fragt bei laufendem
-   Spiel nach. Beendete oder abgebrochene Spiele (auch ein bei Gleichstand mit „Beenden“
-   abgeschlossenes) werden nicht gesichert, eine
-   defekte Sicherung blockiert den Start nie.
-7. **„Konfiguration…“** öffnet das Konfigurationsfenster der Anzeige: ein **Header**
-   (oben) und ein **Footer** (unten), jeweils ein festes Raster aus bis zu 6 Texten
-   und 5 Bildern im Wechsel (Text 1, Bild 1, Text 2, …, Bild 5, Text 6) — leere
-   Slots rücken zusammen, ohne Inhalt ist der Banner ausgeblendet. Bilder per Datei
-   oder URL (werden in die Datenbank kopiert). Dazu **alle Farben der Anzeige** per
-   Farbwähler, die **Schriftart** der Anzeige und **Schriftgrößen-Regler** für
-   Header, Footer, Uhr, Tore und Teamnamen (50–250 %): bei Header/Footer skaliert
-   der Regler Banner-Schrift und Höhenanteil gemeinsam (100 % = ein Zehntel der
-   Fensterhöhe), innerhalb des Spielstands bestimmen die Regler das
-   Größenverhältnis von Uhr, Toren und Teamnamen zueinander — Änderungen wirken
-   sofort auf Anzeige und Kampfgericht und bleiben über Neustarts erhalten. Die
-   Auswahl lässt sich als benanntes **Theme** speichern, laden und löschen;
-   „Standardfarben“ setzt auf die Voreinstellung zurück. Für die **Hupe** stehen
-   fünf eingebaute Töne zur Wahl oder eine eigene Audiodatei (WAV/AIFF/AU).
-   Der Inhalt des Konfigurationsfensters scrollt vertikal; das Fenster öffnet
-   höchstens bildschirmhoch und bleibt so auch auf kleinen Auflösungen
-   bedienbar.
+Die Bedienung (Spiel anlegen, Anzeige auf den zweiten Bildschirm bringen, Uhr, Tore,
+Zeitstrafen, Team-Timeouts, Verlängerung und 7-m-Werfen, Spielstand-Sicherung,
+Konfiguration der Anzeige) steht in der Anleitung:
+**[docs/anleitung.md](docs/anleitung.md)**. Sie ist die einzige Quelle für die
+Bedienung und wird bei jedem Release als PDF an das Release gehängt.
 
 Wie sich das Raster der Anzeige zusammensetzt (Zonen, Zeilengewichte,
 Schriftgrößen-Formeln), beschreibt [docs/layout.md](docs/layout.md).
@@ -103,23 +50,27 @@ Das Model (Uhr, Zeitstrafen, Spielstand) ist UI-frei und vollständig per Unit-T
 mit einer Fake-Zeitquelle abgedeckt. Dazu prüfen UI-Tests ohne sichtbares Fenster die
 Knopf-Logik der Konsole und das Raster der Anzeige bei mehreren Fenstergrößen; sie brauchen
 ein Display (Linux ohne Bildschirm: `xvfb-run -a mvn test`) und werden sonst übersprungen.
-`mvn test` erzeugt außerdem einen Coverage-Bericht unter `target/site/jacoco/index.html`.
+`mvn test` erzeugt außerdem einen Coverage-Bericht unter `target/site/jacoco/index.html`;
+`mvn verify` prüft zusätzlich die Mindest-Abdeckung (so läuft die CI).
 Details in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Windows-Release (EXE)
 
-Beim Veröffentlichen eines GitHub-Releases baut der Workflow
-`.github/workflows/release-windows.yml` automatisch zwei Windows-Artefakte mit
-eingebetteter Java-Runtime (es muss **kein Java installiert** sein) und hängt sie
-an das Release an:
+Ein Release entsteht, wenn ein Versions-Tag gepusht wird
+(`git tag v1.2.3 && git push origin v1.2.3`; die Version im `pom.xml` muss zum Tag
+passen). Dann baut der Workflow `.github/workflows/release-windows.yml` zwei
+Windows-Artefakte mit eingebetteter Java-Runtime (es muss **kein Java installiert**
+sein), erstellt das GitHub-Release mit automatisch erzeugten Notizen und hängt an:
 
 - `Spielstandsanzeige-<version>.exe` — Installer (ohne Adminrechte, mit Startmenü-Eintrag)
 - `Spielstandsanzeige-<version>-windows-portable.zip` — entpacken und
   `Spielstandsanzeige.exe` direkt starten (z. B. vom USB-Stick)
+- `Spielstandsanzeige-Anleitung.pdf` — die Anleitung aus `docs/anleitung.md`
+- `SHA256SUMS.txt` — Prüfsummen von Installer und ZIP
 
-Release-Tags im Format `v1.2.3` mit Hauptversion ≥ 1 verwenden (Vorgabe von
-jpackage). Das Release enthält zusätzlich `SHA256SUMS.txt` mit den Prüfsummen von
-Installer und ZIP.
+Tags im Format `v1.2.3` mit Hauptversion ≥ 1 verwenden (Vorgabe von jpackage). Der
+Workflow lässt sich auch manuell starten; dann entstehen die Dateien nur als
+Workflow-Artifact, ohne Release. Ablauf im Detail: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Windows SmartScreen und Virenscanner
 
@@ -170,7 +121,8 @@ werden dort als zusätzliche Konstanten ergänzt.
 ## Gespeicherte Daten
 
 Die App legt Teamnamen unter `~/.spielstandsanzeige/` ab (`teams.properties`),
-dazu die aktive Anzeige-Konfiguration (`display.properties`: Farben +
+den laufenden Spielstand (`game.properties`), die Logdatei
+(`spielstandsanzeige.log`), dazu die aktive Anzeige-Konfiguration (`display.properties`: Farben +
 Header/Footer), Banner-Bilder (`banners/`), gespeicherte Farb-Themes
 (`themes/`) und die Hupen-Auswahl (`horn.properties`). Der Ordner kann
 gefahrlos gelöscht werden, um alles zurückzusetzen.

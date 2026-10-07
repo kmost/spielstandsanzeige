@@ -34,7 +34,9 @@ nötig.
 1. Starten Sie **Spielstandsanzeige** über das Startmenü. Es öffnet sich das
    Fenster **„Kampfgericht“** — hier wird alles bedient.
 2. Tragen Sie die beiden Teamnamen ein (bereits verwendete Namen werden beim
-   Tippen vorgeschlagen) und prüfen Sie Spielmodus und Periodendauer. Bei
+   Tippen vorgeschlagen, neue Namen schreiben Sie frei ein) und prüfen Sie den
+   Spielmodus (eine durchgehende Spielzeit, zwei Halbzeiten oder drei Drittel)
+   und die Periodendauer. Bei
    **„Uhr“** wählen Sie, ob die Spieluhr **vorwärts** (0:00 → Ende) oder
    **rückwärts** (Ende → 0:00) läuft. Unter **„Verlängerung (falls nötig)“**
    ist voreingestellt, wie eine eventuelle Verlängerung gespielt würde
@@ -59,11 +61,16 @@ nötig.
 - **Start / Pause / Fortsetzen** steuert die Spieluhr. Am Ende jedes
   Spielabschnitts stoppt die Uhr automatisch und die Hupe ertönt; den nächsten
   Abschnitt (2. Halbzeit bzw. 2./3. Drittel) starten Sie manuell.
-- Pro Team: **+1 Tor / −1 Tor**, **„2 Minuten“** für Zeitstrafen (optional mit
-  Trikotnummer) und **Team-Timeout** (1-Minuten-Countdown mit Hupe). Jedes Team
-  hat drei Timeouts pro Spiel; die Punkte neben dem Knopf zeigen, wie viele noch
-  übrig sind.
-- Laufende Zeitstrafen sind im Kampfgericht und auf der Anzeige sichtbar. Eine
+- Pro Team: **+1 Tor / −1 Tor** (nie unter 0), **„2 Minuten“** für Zeitstrafen
+  (optional mit Trikotnummer im Feld „Nr.“) und **Team-Timeout**.
+- Ein **Team-Timeout** hält die Spieluhr an und startet einen 1-Minuten-Countdown
+  in Echtzeit (Hupe bei Ablauf). Es lässt sich vorzeitig durch einen Klick auf
+  seine Zeile beenden. Das Spiel bleibt unterbrochen, bis Sie es mit
+  **„Fortsetzen“** wieder starten — das beendet auch ein noch laufendes Timeout.
+  Jedes Team hat drei Timeouts pro Spiel; die Punkte (●●○) neben dem Knopf zeigen,
+  wie viele noch übrig sind. Sie sperren nichts, das Kampfgericht entscheidet.
+- Zeitstrafen sind an die Spieluhr gekoppelt (sie pausieren mit) und verschwinden
+  bei Ablauf automatisch. Laufende Zeitstrafen sind im Kampfgericht und auf der Anzeige sichtbar. Eine
   versehentlich gestartete Zeitstrafe brechen Sie mit einem Klick auf ihre
   Zeile im Kampfgericht ab. Mit **„→ 4 Min“** neben der Zeile verlängern Sie eine
   laufende 2-Minuten-Strafe auf insgesamt 4 Minuten (einmal je Strafe).
@@ -81,7 +88,9 @@ nötig.
   rote Meldung. Das Spiel läuft weiter. Einzelheiten stehen in der Logdatei
   `~/.spielstandsanzeige/spielstandsanzeige.log`.
 - **„Zeit stellen…“** korrigiert die Uhr, falls sie zu spät gestartet oder
-  gestoppt wurde.
+  gestoppt wurde. Die Eingabe erfolgt im Format der Uhranzeige und ist auf den
+  aktuellen Spielabschnitt begrenzt; das geht auch aus der Halbzeitpause heraus,
+  falls die Uhr zu spät gestoppt wurde.
   Stellen Sie die Uhr hinter den Beginn einer laufenden Zeitstrafe zurück, beginnt
   diese Strafe neu zu laufen (nie mehr als 2 bzw. 4 Minuten Restzeit); stellen Sie
   die Uhr vor, läuft sie entsprechend ab.
@@ -107,20 +116,33 @@ nötig.
 - **„📢 Hupe“** löst die Hupe von Hand aus, z. B. zur Ankündigung des
   Wiederanpfiffs.
 - **„⏹ Spiel abbrechen“** beendet das Spiel vorzeitig — die Uhr stoppt nach
-  einer Rückfrage endgültig.
+  einer Rückfrage bei der aktuellen Zeit endgültig. Ein neues Spiel können Sie
+  danach direkt anlegen.
 
 ## Konfiguration
 
 Über den Knopf **„Konfiguration…“** im Kampfgericht-Fenster lässt sich das
-Aussehen der Publikumsanzeige anpassen: alle **Farben** und die **Schriftart**,
-die **Schriftgrößen** von Uhr, Toren und Teamnamen per Regler sowie ein
-**Header und Footer** mit eigenen Texten und Bildern — zum Beispiel
-Vereinslogo, Hallenname oder Sponsoren. Bilder lassen sich aus einer Datei oder
-per **„🌐 URL…“** aus dem Internet übernehmen; das Laden läuft im Hintergrund
+Aussehen der Publikumsanzeige anpassen: alle **Farben** per Farbwähler und die
+**Schriftart**, die **Schriftgrößen** per Regler (50–250 %) sowie ein
+**Header** (oben) und **Footer** (unten) mit eigenen Texten und Bildern — zum
+Beispiel Vereinslogo, Hallenname oder Sponsoren.
+
+- Header und Footer bestehen je aus einem festen Raster mit bis zu 6 Texten und
+  5 Bildern im Wechsel (Text 1, Bild 1, Text 2, …, Bild 5, Text 6). Leere Felder
+  rücken zusammen; ohne Inhalt ist der Bereich ausgeblendet.
+- Bei Header und Footer vergrößert der Regler Schrift und Höhe gemeinsam
+  (100 % = ein Zehntel der Fensterhöhe). Für Uhr, Tore und Teamnamen legen die
+  Regler fest, wie groß sie im Verhältnis zueinander erscheinen.
+- Das Konfigurationsfenster scrollt senkrecht und ist höchstens so hoch wie der
+  Bildschirm, es bleibt also auch auf kleinen Auflösungen bedienbar.
+
+Bilder für Header und Footer lassen sich aus einer Datei oder per
+**„🌐 URL…“** aus dem Internet übernehmen; das Laden läuft im Hintergrund
 (mit „Abbrechen“), erlaubt sind nur **https**-Adressen und Bilder bis 10 MB im
 Format PNG, JPG oder GIF. Auch der **Hupenton** ist wählbar
-(fünf eingebaute Töne oder eine eigene Audiodatei). Jede Änderung ist sofort
-auf der Anzeige sichtbar und bleibt auch nach einem Neustart des Programms
+(fünf eingebaute Töne oder eine eigene Audiodatei im Format WAV, AIFF oder AU).
+
+Jede Änderung ist sofort auf der Anzeige sichtbar und bleibt auch nach einem Neustart des Programms
 erhalten. Eine fertige Gestaltung kann als benanntes **Theme** gespeichert und
 später wieder geladen werden. Speichern Sie unter einem bestehenden Namen,
 wird das Theme überschrieben. Ergibt ein neuer Name denselben Dateinamen wie ein
