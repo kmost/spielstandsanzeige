@@ -13,6 +13,8 @@ mvn test          # alle Tests (Model, Stores und UI) samt Coverage-Bericht
 ```
 
 Der Coverage-Bericht (JaCoCo) liegt danach unter `target/site/jacoco/index.html`.
+`mvn verify` prüft zusätzlich die Mindest-Abdeckung (Eigenschaft `jacoco.minimum` im `pom.xml`,
+aktuell 85 % der Instruktionen); genau das führt auch die CI aus.
 
 ## UI-Tests
 
@@ -23,7 +25,7 @@ Modale Rückfragen laufen über die Schnittstelle `Dialogs`; die Tests setzen `F
 mit vorgegebenen Antworten ein.
 
 - Sie brauchen ein Display. Auf einem Linux-Rechner ohne Bildschirm:
-  `xvfb-run -a mvn test` (so läuft auch die CI).
+  `xvfb-run -a mvn verify` (so läuft auch die CI).
 - Ohne Display werden sie übersprungen (kein Fehlschlag). Gezielt überspringen:
   `mvn test -Dtest.excludedGroups=ui`.
 - Nur die UI-Tests: `mvn test -Dgroups=ui`; ein einzelner Test:
@@ -71,10 +73,21 @@ mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
 - **Keine neuen Laufzeit-Abhängigkeiten** ohne guten Grund: Die App soll als
   selbständige EXE/App paketierbar bleiben (Hupe wird z. B. zur Laufzeit
   generiert statt als Audio-Asset mitgeliefert).
-- Vor dem PR: `mvn test` muss grün sein.
+- Vor dem PR: `mvn verify` muss grün sein (Tests und Mindest-Abdeckung).
 
 ## Neue Sportarten
 
 Vorgabewerte (Periodendauer, Strafzeit, Timeout) stehen als Konstanten in
 `SportProfile.java` — eine neue Sportart ist zunächst nur eine weitere
 Konstante plus Auswahl im Setup.
+
+## Release
+
+1. `<version>` im `pom.xml` auf die neue Version setzen (Hauptversion ≥ 1, Form `1.2.3`) und committen.
+2. Tag setzen und pushen: `git tag v1.2.3 && git push origin v1.2.3`.
+
+Der Workflow `release-windows.yml` bricht sofort ab, wenn Tag und `pom.xml`-Version nicht
+übereinstimmen. Die Release-Notizen entstehen automatisch aus den gemergten PRs und
+geschlossenen Issues, gegliedert nach Labels (`.github/release.yml`) — Labels an PRs also
+sauber pflegen. Dependabot schlägt wöchentlich Updates für Maven-Abhängigkeiten und
+GitHub Actions vor.
