@@ -9,8 +9,25 @@ Beiträge sind willkommen — von Fehlermeldungen über Ideen bis zu Pull Reques
 
 ```sh
 mvn javafx:run    # App starten
-mvn test          # Unit-Tests (Model, ohne UI)
+mvn test          # alle Tests (Model, Stores und UI) samt Coverage-Bericht
 ```
+
+Der Coverage-Bericht (JaCoCo) liegt danach unter `target/site/jacoco/index.html`.
+
+## UI-Tests
+
+Die Tests unter `ui/` (`ControlWindowTest`, `DisplayWindowTest`, `ConfigWindowTest`, mit
+`@Tag("ui")`) starten das JavaFX-Toolkit ohne sichtbares Fenster und prüfen
+Zustandswechsel, Knopf-Logik und das Raster der Anzeige bei mehreren Fenstergrößen.
+Modale Rückfragen laufen über die Schnittstelle `Dialogs`; die Tests setzen `FakeDialogs`
+mit vorgegebenen Antworten ein.
+
+- Sie brauchen ein Display. Auf einem Linux-Rechner ohne Bildschirm:
+  `xvfb-run -a mvn test` (so läuft auch die CI).
+- Ohne Display werden sie übersprungen (kein Fehlschlag). Gezielt überspringen:
+  `mvn test -Dtest.excludedGroups=ui`.
+- Nur die UI-Tests: `mvn test -Dgroups=ui`; ein einzelner Test:
+  `mvn test -Dtest=ControlWindowTest#endGameAsksAndOnlyEndsOnConfirmation`.
 
 ## Layout der Publikumsanzeige prüfen
 

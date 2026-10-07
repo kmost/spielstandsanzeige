@@ -24,6 +24,8 @@ import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.AppIcon;
+import de.kmost.scoreboard.ui.Dialogs;
+import de.kmost.scoreboard.ui.FxDialogs;
 import de.kmost.scoreboard.ui.Theme;
 import de.kmost.scoreboard.ui.TimeFormatter;
 import de.kmost.scoreboard.ui.config.ConfigWindow;
@@ -43,17 +45,13 @@ import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
@@ -67,12 +65,15 @@ import javafx.scene.layout.VBox;
 import javafx.scene.transform.Scale;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 /** Kampfgericht-Konsole: Spiel-Setup, Spielsteuerung und Steuerung der Publikumsanzeige. */
 public class ControlWindow {
 
     private final Stage stage;
     private final Horn horn;
+    private final Dialogs dialogs;
+    private final Runnable exitAction;
     private final ObjectProperty<GameState> gameState = new SimpleObjectProperty<>();
     private final DisplayWindow displayWindow;
     private final BorderPane root = new BorderPane();
@@ -107,8 +108,18 @@ public class ControlWindow {
     ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
                   ThemeRepository themeRepository, GameSnapshotStore snapshotStore,
                   double width, double height) {
+        this(stage, horn, teamRepository, themeRepository, snapshotStore, width, height,
+                new FxDialogs(), Platform::exit);
+    }
+
+    // Dialoge und Beenden-Aktion sind für Tests austauschbar (vorgegebene Antworten, kein Platform.exit)
+    ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
+                  ThemeRepository themeRepository, GameSnapshotStore snapshotStore,
+                  double width, double height, Dialogs dialogs, Runnable exitAction) {
         this.stage = stage;
         this.horn = horn;
+        this.dialogs = dialogs;
+        this.exitAction = exitAction;
         this.teamRepository = teamRepository;
         this.themeRepository = themeRepository;
         this.snapshotStore = snapshotStore;
@@ -143,24 +154,23 @@ public class ControlWindow {
         stage.setScene(scene);
         stage.setTitle("Kampfgericht – Spielstandsanzeige");
         AppIcon.apply(stage);
-        stage.setOnCloseRequest(e -> {
-            GameState state = gameState.get();
-            if (state != null && isInProgress(state)) {
-                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                        "Das Spiel ist noch nicht beendet. Wirklich beenden? Der Spielstand wird "
-                                + "gesichert und beim nächsten Start zum Fortsetzen angeboten.",
-                        ButtonType.OK, ButtonType.CANCEL);
-                confirm.setHeaderText(null);
-                if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
-                    e.consume();
-                    return;
-                }
-                if (autosave != null) {
-                    autosave.saveNow();
-                }
+        stage.setOnCloseRequest(this::onCloseRequest);
+    }
+
+    /** Beim Schließen eines laufenden Spiels nachfragen; der Stand wird vor dem Beenden gesichert. */
+    void onCloseRequest(WindowEvent e) {
+        GameState state = gameState.get();
+        if (state != null && isInProgress(state)) {
+            if (!dialogs.confirm("Das Spiel ist noch nicht beendet. Wirklich beenden? Der Spielstand wird "
+                    + "gesichert und beim nächsten Start zum Fortsetzen angeboten.")) {
+                e.consume();
+                return;
             }
-            Platform.exit();
-        });
+            if (autosave != null) {
+                autosave.saveNow();
+            }
+        }
+        exitAction.run();
     }
 
     /** Ein gestartetes, noch nicht endgültig beendetes Spiel — nur das wird gesichert. */
@@ -237,7 +247,7 @@ public class ControlWindow {
     }
 
     /** Bietet ein nach Absturz oder Neustart gesichertes, nicht beendetes Spiel zum Fortsetzen an. */
-    private void offerResume() {
+    void offerResume() {
         GameState restored = snapshotStore.load().map(snapshot -> {
             try {
                 return GameState.restore(snapshot, System::nanoTime);
@@ -254,17 +264,11 @@ public class ControlWindow {
         GameConfig config = restored.config();
         String clockText = TimeFormatter.formatClock(clock.elapsedMillisProperty().get(),
                 clock.currentPeriodEndMillis(), config.direction());
-        ButtonType resume = new ButtonType("Fortsetzen", ButtonBar.ButtonData.OK_DONE);
-        ButtonType discard = new ButtonType("Verwerfen", ButtonBar.ButtonData.CANCEL_CLOSE);
-        Alert dialog = new Alert(Alert.AlertType.CONFIRMATION,
+        if (dialogs.askResume("Laufendes Spiel fortsetzen?", "Es gibt ein nicht beendetes Spiel.",
                 config.homeName() + " " + restored.scoreProperty(TeamSide.HOME).get() + " : "
                         + restored.scoreProperty(TeamSide.GUEST).get() + " " + config.guestName()
                         + "\n" + phaseText(restored) + ", " + clockText
-                        + "\n\nDie Uhr steht und wird mit „Fortsetzen“ weitergestartet.",
-                resume, discard);
-        dialog.setTitle("Laufendes Spiel fortsetzen?");
-        dialog.setHeaderText("Es gibt ein nicht beendetes Spiel.");
-        if (dialog.showAndWait().orElse(discard) == resume) {
+                        + "\n\nDie Uhr steht und wird mit „Fortsetzen“ weitergestartet.")) {
             startGame(restored);
         } else {
             snapshotStore.delete();
@@ -332,7 +336,7 @@ public class ControlWindow {
         configButton.setOnAction(e -> {
             if (configWindow == null) {
                 configWindow = new ConfigWindow(stage, displayWindow, themeRepository,
-                        teamRepository, horn, this::applyTheme, this::applyDefaultHomeTeam);
+                        teamRepository, horn, this::applyTheme, this::applyDefaultHomeTeam, dialogs);
             }
             configWindow.show();
         });
@@ -403,16 +407,11 @@ public class ControlWindow {
         };
     }
 
-    private void createGame() {
+    void createGame() {
         GameState current = gameState.get();
-        if (current != null && !current.isOver()) {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                    "Das aktuelle Spiel wird verworfen. Neues Spiel anlegen?",
-                    ButtonType.OK, ButtonType.CANCEL);
-            confirm.setHeaderText(null);
-            if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
-                return;
-            }
+        if (current != null && !current.isOver()
+                && !dialogs.confirm("Das aktuelle Spiel wird verworfen. Neues Spiel anlegen?")) {
+            return;
         }
         String homeName = teamName(TeamSide.HOME);
         String guestName = teamName(TeamSide.GUEST);
@@ -683,12 +682,8 @@ public class ControlWindow {
         setTimeButton.visibleProperty().bind(endGameButton.visibleProperty().not());
         setTimeButton.managedProperty().bind(setTimeButton.visibleProperty());
         endGameButton.setOnAction(e -> {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                    "Unentschieden stehen lassen und Spiel beenden? Danach sind weder "
-                            + "Verlängerung noch 7-m-Werfen möglich.",
-                    ButtonType.OK, ButtonType.CANCEL);
-            confirm.setHeaderText(null);
-            if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            if (dialogs.confirm("Unentschieden stehen lassen und Spiel beenden? Danach sind weder "
+                    + "Verlängerung noch 7-m-Werfen möglich.")) {
                 state.endGame();
             }
         });
@@ -724,51 +719,37 @@ public class ControlWindow {
     private void correctClock(GameState state) {
         GameClock clock = state.clock();
         boolean countUp = state.config().direction() == ClockDirection.UP;
-        TextInputDialog dialog = new TextInputDialog(TimeFormatter.formatClock(
-                clock.elapsedMillisProperty().get(), clock.currentPeriodEndMillis(),
-                state.config().direction()));
-        dialog.setTitle("Spielzeit stellen");
         int period = clock.periodProperty().get();
         String segment = state.config().isOvertimePeriod(period)
                 ? overtimeLabel(state.config(), period)
                 : state.config().mode().periodName() + " " + period;
         boolean showSegment = state.config().mode().periodCount() > 1
                 || state.config().isOvertimePeriod(period);
-        dialog.setHeaderText(countUp
+        String header = countUp
                 ? "Gespielte Zeit (MM:SS)" + (showSegment
                         ? " — " + segment + " läuft ab "
                                 + TimeFormatter.formatClock(clock.currentPeriodStartMillis(), 0,
                                         ClockDirection.UP)
                         : "")
-                : "Restzeit der aktuellen Periode (MM:SS)");
-        dialog.setContentText("Zeit:");
-        dialog.showAndWait().ifPresent(text -> {
+                : "Restzeit der aktuellen Periode (MM:SS)";
+        dialogs.askText("Spielzeit stellen", header, "Zeit:", TimeFormatter.formatClock(
+                clock.elapsedMillisProperty().get(), clock.currentPeriodEndMillis(),
+                state.config().direction())).ifPresent(text -> {
             try {
                 long shown = TimeFormatter.parseClockInput(text);
                 clock.setElapsed(countUp ? shown : clock.currentPeriodEndMillis() - shown);
             } catch (IllegalArgumentException ex) {
-                Alert alert = new Alert(Alert.AlertType.WARNING, ex.getMessage());
-                alert.setHeaderText(null);
-                alert.showAndWait();
+                dialogs.warn(ex.getMessage());
             }
         });
     }
 
     /** Startteam abfragen (Münzwurf) und das 7-m-Werfen beginnen. */
     private void startShootout(GameState state) {
-        ButtonType homeStarts = new ButtonType(state.config().teamName(TeamSide.HOME) + " beginnt");
-        ButtonType guestStarts = new ButtonType(state.config().teamName(TeamSide.GUEST) + " beginnt");
-        Alert dialog = new Alert(Alert.AlertType.CONFIRMATION,
-                "Welches Team wirft zuerst?", homeStarts, guestStarts, ButtonType.CANCEL);
-        dialog.setTitle("7-m-Werfen");
-        dialog.setHeaderText(null);
-        dialog.showAndWait().ifPresent(choice -> {
-            if (choice == homeStarts) {
-                state.startShootout(TeamSide.HOME);
-            } else if (choice == guestStarts) {
-                state.startShootout(TeamSide.GUEST);
-            }
-        });
+        dialogs.choose("7-m-Werfen", "Welches Team wirft zuerst?", List.of(
+                state.config().teamName(TeamSide.HOME) + " beginnt",
+                state.config().teamName(TeamSide.GUEST) + " beginnt")).ifPresent(choice ->
+                state.startShootout(choice == 0 ? TeamSide.HOME : TeamSide.GUEST));
     }
 
     /** Sichtbare Runden der Wurf-Tabelle; ältere Runden verlassen die Tabelle per „…“. */
@@ -891,11 +872,7 @@ public class ControlWindow {
             cornerButton.disableProperty().bind(
                     state.clock().phaseProperty().isEqualTo(GameClock.Phase.FINISHED));
             cornerButton.setOnAction(e -> {
-                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                        "Das Spiel wirklich abbrechen? Die Uhr stoppt endgültig.",
-                        ButtonType.OK, ButtonType.CANCEL);
-                confirm.setHeaderText(null);
-                if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+                if (dialogs.confirm("Das Spiel wirklich abbrechen? Die Uhr stoppt endgültig.")) {
                     state.abortGame();
                 }
             });

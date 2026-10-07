@@ -10,6 +10,8 @@ import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.TeamRepository;
 import de.kmost.scoreboard.store.ThemeRepository;
 import de.kmost.scoreboard.ui.AppIcon;
+import de.kmost.scoreboard.ui.Dialogs;
+import de.kmost.scoreboard.ui.FxDialogs;
 import de.kmost.scoreboard.ui.FontScale;
 import de.kmost.scoreboard.ui.Theme;
 import de.kmost.scoreboard.ui.ThemeColor;
@@ -18,9 +20,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -54,6 +54,7 @@ public class ConfigWindow {
     private final ThemeRepository themeRepository;
     private final TeamRepository teamRepository;
     private final Horn horn;
+    private final Dialogs dialogs;
     private final Consumer<Theme> onThemeChange;
     private final Consumer<String> onDefaultHomeChange;
     private static final String SYSTEM_FONT = "System (Standard)";
@@ -69,6 +70,14 @@ public class ConfigWindow {
     public ConfigWindow(Window owner, DisplayWindow displayWindow, ThemeRepository themeRepository,
                         TeamRepository teamRepository, Horn horn, Consumer<Theme> onThemeChange,
                         Consumer<String> onDefaultHomeChange) {
+        this(owner, displayWindow, themeRepository, teamRepository, horn, onThemeChange,
+                onDefaultHomeChange, new FxDialogs());
+    }
+
+    public ConfigWindow(Window owner, DisplayWindow displayWindow, ThemeRepository themeRepository,
+                        TeamRepository teamRepository, Horn horn, Consumer<Theme> onThemeChange,
+                        Consumer<String> onDefaultHomeChange, Dialogs dialogs) {
+        this.dialogs = dialogs;
         this.displayWindow = displayWindow;
         this.themeRepository = themeRepository;
         this.teamRepository = teamRepository;
@@ -417,10 +426,7 @@ public class ConfigWindow {
         if (name.isEmpty()) {
             return;
         }
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Theme „" + name + "“ wirklich löschen?", ButtonType.OK, ButtonType.CANCEL);
-        confirm.setHeaderText(null);
-        if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+        if (dialogs.confirm("Theme „" + name + "“ wirklich löschen?")) {
             themeRepository.deleteTheme(name);
             refreshThemeNames(null);
         }
@@ -477,8 +483,6 @@ public class ConfigWindow {
     }
 
     private void warn(String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING, message);
-        alert.setHeaderText(null);
-        alert.showAndWait();
+        dialogs.warn(message);
     }
 }
