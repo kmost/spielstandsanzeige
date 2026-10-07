@@ -2,9 +2,11 @@
 
 Dieses Dokument beschreibt das Raster der Publikumsanzeige (`ui/display`):
 welche Zonen es gibt, wie sich ihre Größen berechnen und wo die Werte im Code
-stehen. Maßgeblich sind die Konstanten im Code (`DisplayWindow`, `Banner`); die
-Zonenaufteilung prüft `DisplayWindowTest`. Ändert sich eine Konstante, wird dieses
-Dokument im selben Commit angepasst.
+stehen. Maßgeblich sind die Konstanten in `ui/display/DisplayLayout.java` (dort steht
+zu jedem Wert, woher er kommt); die Zonenaufteilung prüft `DisplayWindowTest`. Dieses
+Dokument nennt die Konstanten beim Namen und wiederholt ihre Werte nur dort, wo sie
+zum Verständnis der Formel nötig sind. Ändert sich eine Formel, wird es im selben
+Commit angepasst.
 
 ## Überblick
 
@@ -36,10 +38,10 @@ Standardverhältnis **10 : 80 : 10** der Fensterhöhe. Die Zonen sind fest —
 unabhängig von Schriftart, Schriftgröße und Banner-Inhalt.
 
 - Ein sichtbarer Banner belegt `10 % × Größenfaktor` der Fensterhöhe
-  (`Banner.SHARE = 0.10`, Faktor aus dem Theme: `FontScale.HEADER` /
+  (`DisplayLayout.BANNER_SHARE`, Faktor aus dem Theme: `FontScale.HEADER` /
   `FontScale.FOOTER`, im Konfigurationsfenster 50–250 %).
 - Zwischen sichtbarem Banner und Spielstand liegt ein Abstand von **2 %**
-  der Fensterhöhe (`DisplayWindow.BANNER_GAP`). Er geht zulasten des
+  der Fensterhöhe (`DisplayLayout.BANNER_GAP`). Er geht zulasten des
   Spielstands, damit die konfigurierten Banner-Anteile exakt stimmen.
 - **Ausgeblendete Banner** (ohne anzeigbaren Inhalt) erzeugen weder Zone noch
   Abstand — ihr Anteil fällt an den Spielstand.
@@ -53,7 +55,7 @@ Eine Instanz der Klasse `Banner` je Seite; mittige `HBox` mit den Slots der
 Text 6), leere Slots rücken zusammen.
 
 - **Schriftgröße** hängt direkt an der Zonenhöhe: `45 %` der Bannerhöhe
-  (`Banner.FONT_SHARE = 0.45`). Bei Standardgröße also 4,5 % der Fensterhöhe.
+  (`DisplayLayout.BANNER_FONT_SHARE`). Bei Standardgröße also 4,5 % der Fensterhöhe.
   Sie ist bewusst *nicht* an die em-Basisgröße des Spielstands gekoppelt —
   wächst der Banner, wächst seine Schrift im gleichen Verhältnis.
 - **Bilder** werden proportional auf `Bannerhöhe − 6 px` skaliert.
@@ -70,13 +72,14 @@ Alle Größen im Spielstand sind in `em` einer gemeinsamen Basis. Die Basis wird
 in `DisplayWindow` berechnet:
 
 ```
-Basis = min( Spielstandhöhe × 0.0625 , Fensterbreite × 0.029 ) / Gewichtssumme
-        (mindestens 10 px)
+Basis = min( Spielstandhöhe × BASE_FONT_HEIGHT_SHARE ,
+             Fensterbreite × BASE_FONT_WIDTH_SHARE ) / Gewichtssumme
+        (mindestens BASE_FONT_MIN_PX)
 ```
 
-- `0.0625` entspricht den historischen 5 % der Fensterhöhe bei zwei sichtbaren
+- `BASE_FONT_HEIGHT_SHARE` (0.0625) entspricht den historischen 5 % der Fensterhöhe bei zwei sichtbaren
   Standard-Bannern (0.05 / 0.8).
-- Die **Breiten-Deckelung** (`0.029`) sorgt dafür, dass die breiteste Zeile
+- Die **Breiten-Deckelung** (`BASE_FONT_WIDTH_SHARE`) sorgt dafür, dass die breiteste Zeile
   (Strafen-Chip in der 25-%-Spalte, bei Standardgröße) auch in schmalen
   Fenstern (z. B. 4:3) vollständig bleibt; bei 16:9 und breiter greift die
   Höhe. Per Faktor vergrößerte Strafen-Chips werden zusätzlich in ihre
@@ -97,7 +100,7 @@ gewichtet und auf 100 % normalisiert werden (`DisplayWindow.weightedRow`):
 | 2 | Tore Heim · Phase („1. HZ“/„Pause“/„Ende“; in der Verlängerung zweizeilig „1. Verlängerung“ + „2. HZ“, eingepasst statt gekürzt) · Tore Gast | 38 % | `FontScale.SCORE` |
 | 3 | Teamname + Timeout-Punkte je Seite (beim 7-m-Werfen zusätzlich die Trefferfolge ● Tor / ○ Fehlwurf) | 24 % | `FontScale.TEAM_NAME` |
 
-Gewichtssumme = `0.38·Uhr + 0.38·Tore + 0.24·Namen`. Weil die Basis-Schrift
+Gewichtssumme = `ROW_CLOCK·Uhr + ROW_SCORE·Tore + ROW_NAMES·Namen` (Standardanteile 38/38/24 %). Weil die Basis-Schrift
 durch dieselbe Summe geteilt wird, behält jedes Element sein Verhältnis zur
 eigenen Zeilenhöhe — **kein Regler kann etwas aus seiner Zeile drängen**, und
 ein gleichmäßiges Vergrößern aller drei Faktoren ändert nichts: Innerhalb des
@@ -105,25 +108,25 @@ Spielstands definieren die Faktoren nur die Verhältnisse zueinander.
 
 ### Spalten
 
-- Zeile 1: `25 % | 50 % | 25 %` — Strafen außen (Heim linksbündig, Gast
+- Zeile 1 (`CLOCK_ROW_COLUMNS`): `25 % | 50 % | 25 %` — Strafen außen (Heim linksbündig, Gast
   rechtsbündig, jeweils **oben bündig**, damit die Chips nicht springen, wenn
   Strafen dazukommen oder auslaufen), Uhr mittig, darunter der Timeout-Chip.
-- Zeilen 2 und 3: `42 % | 16 % | 42 %` — identische Spalten, damit die
+- Zeilen 2 und 3 (`SCORE_ROW_COLUMNS`): `42 % | 16 % | 42 %` — identische Spalten, damit die
   Teamnamen exakt unter ihren Toren stehen.
-- Teamnamen brechen ab `40 %` der Fensterbreite um.
-- Außenabstand des Spielstand-Rasters: `10/15 px`.
+- Teamnamen brechen ab `TEAM_NAME_MAX_WIDTH_SHARE` (40 %) der Fensterbreite um.
+- Außenabstand des Spielstand-Rasters: `GRID_PADDING_VERTICAL/HORIZONTAL` (10/15 px).
 
 ### Schriftgrößen (in em der Basis)
 
 | Element | Größe | definiert in |
 |---|---|---|
-| Spieluhr | `5.2 em × Faktor Uhr` | `DisplayWindow.CLOCK_EM` |
-| Tore | `6.0 em × Faktor Tore` | `DisplayWindow.SCORE_EM` |
-| Teamnamen | `1.1 em × Faktor Teamnamen` | `DisplayWindow.TEAM_NAME_EM` |
-| Strafen-Chips | `1.4 em × Faktor Zeitstrafen` | `DisplayWindow.PENALTY_EM` |
-| Phase | `1.1 em × Faktor Statuszeile` | `DisplayWindow.PHASE_EM` |
-| Timeout-Chip | `1 em × Faktor Timeout` | `DisplayWindow.TIMEOUT_EM` |
-| Timeout-Punkte | `0.85 em × Faktor Timeout` | `DisplayWindow.TIMEOUT_DOTS_EM` |
+| Spieluhr | `5.2 em × Faktor Uhr` | `DisplayLayout.CLOCK_EM` |
+| Tore | `6.0 em × Faktor Tore` | `DisplayLayout.SCORE_EM` |
+| Teamnamen | `1.1 em × Faktor Teamnamen` | `DisplayLayout.TEAM_NAME_EM` |
+| Strafen-Chips | `1.4 em × Faktor Zeitstrafen` | `DisplayLayout.PENALTY_EM` |
+| Phase | `1.1 em × Faktor Statuszeile` | `DisplayLayout.PHASE_EM` |
+| Timeout-Chip | `1 em × Faktor Timeout` | `DisplayLayout.TIMEOUT_EM` |
+| Timeout-Punkte | `0.85 em × Faktor Timeout` | `DisplayLayout.TIMEOUT_DOTS_EM` |
 
 Nur die Faktoren von Uhr, Toren und Teamnamen gewichten zusätzlich ihre
 Zeilen (siehe oben) — Zeitstrafen, Timeout und Statuszeile skalieren rein
@@ -140,7 +143,8 @@ dadurch nichts — auch bei Schriften ohne gleich breite Ziffern
 
 | Bereich | Ort |
 |---|---|
-| Äußeres Raster, Basis-Schrift, Zeilen/Spalten | `ui/display/DisplayWindow.java` |
+| alle Layout-Konstanten (Anteile, Spalten, Abstände, em-Größen) | `ui/display/DisplayLayout.java` |
+| Aufbau des Rasters, Basis-Schrift, Zeilen/Spalten | `ui/display/DisplayWindow.java` |
 | Banner-Zone, Banner-Schrift, Slot-Aufbau | `ui/display/Banner.java` |
 | feste em-Größen, Farben (Fallbacks) | `resources/…/display.css` |
 | Größenfaktoren (Enum, Teil des Themes) | `ui/FontScale.java`, `ui/Theme.java` |
