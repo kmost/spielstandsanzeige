@@ -117,4 +117,19 @@ class ShootoutTest {
         assertEquals("● ● ○", shootout.symbols(TeamSide.HOME, 5));
         assertEquals("… ● ○", shootout.symbols(TeamSide.HOME, 2));
     }
+
+    @Test
+    void attemptListenersSurviveGarbageCollection() throws InterruptedException {
+        Shootout shootout = new Shootout(TeamSide.HOME);
+        java.util.concurrent.atomic.AtomicInteger changes = new java.util.concurrent.atomic.AtomicInteger();
+        shootout.attempts().addListener(
+                (javafx.collections.ListChangeListener<Shootout.Attempt>) change -> changes.incrementAndGet());
+        shootout.record(true);
+        for (int i = 0; i < 5; i++) {
+            System.gc();
+            Thread.sleep(20);
+        }
+        shootout.record(false);
+        assertEquals(2, changes.get());
+    }
 }

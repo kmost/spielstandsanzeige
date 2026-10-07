@@ -22,6 +22,10 @@ public class Shootout {
 
     private final TeamSide startingTeam;
     private final ObservableList<Attempt> attempts = FXCollections.observableArrayList();
+    // eine einzige Sicht, die das Shootout selbst hält: Jeder Aufruf von unmodifiableObservableList
+    // erzeugt einen neuen Wrapper, der sich nur schwach an die Liste hängt — Listener auf einem
+    // nicht festgehaltenen Wrapper gingen nach der nächsten Garbage Collection verloren
+    private final ObservableList<Attempt> attemptsView = FXCollections.unmodifiableObservableList(attempts);
     private final ReadOnlyObjectWrapper<TeamSide> nextThrower = new ReadOnlyObjectWrapper<>();
     private final ReadOnlyObjectWrapper<TeamSide> winner = new ReadOnlyObjectWrapper<>();
 
@@ -95,7 +99,7 @@ public class Shootout {
     }
 
     public ObservableList<Attempt> attempts() {
-        return FXCollections.unmodifiableObservableList(attempts);
+        return attemptsView;
     }
 
     /** Team, das den nächsten Wurf hat; {@code null}, sobald der Sieger feststeht. */
