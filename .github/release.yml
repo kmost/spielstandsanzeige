@@ -1,0 +1,13 @@
+# Gliedert die automatisch erzeugten Release-Notizen nach Issue-/PR-Labels.
+changelog:
+  categories:
+    - title: Fehlerbehebungen
+      labels: [bug]
+    - title: Neue Funktionen
+      labels: [enhancement]
+    - title: Umbau und Stabilität
+      labels: [architecture, maintainability, reliability, testing]
+    - title: Build, Release und Dokumentation
+      labels: [build, documentation]
+    - title: Weitere Änderungen
+      labels: ['*']

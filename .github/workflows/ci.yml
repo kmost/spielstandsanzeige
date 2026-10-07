@@ -20,8 +20,9 @@ jobs:
           java-version: '25'
           cache: maven
 
-      - name: Bauen und Tests ausführen (UI-Tests unter xvfb)
-        run: xvfb-run -a mvn -B test
+      # verify = Tests inkl. UI-Tests unter xvfb + JaCoCo-Mindestabdeckung (siehe pom.xml)
+      - name: Bauen, Tests ausführen und Abdeckung prüfen
+        run: xvfb-run -a mvn -B verify
 
       - name: Coverage-Bericht hochladen
         if: always()

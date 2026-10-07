@@ -5,7 +5,10 @@ name: Windows-Release bauen
 #   - Spielstandsanzeige-<version>.exe  → Installer (ohne Adminrechte, Startmenü-Eintrag)
 #   - ...-windows-portable.zip          → entpacken und Spielstandsanzeige.exe starten
 #   - Spielstandsanzeige-Anleitung.pdf  → Bedienungsanleitung (aus docs/anleitung.md)
-# Release veröffentlichen: git tag v1.2.3 && git push origin v1.2.3
+# Release veröffentlichen: <version> im pom.xml auf 1.2.3 setzen, committen, dann
+#   git tag v1.2.3 && git push origin v1.2.3
+# Passen Tag und pom.xml-Version nicht zusammen, bricht der Workflow sofort ab.
+# Die Release-Notizen werden automatisch erzeugt (Gliederung: .github/release.yml).
 # Kann über workflow_dispatch auch manuell laufen (Ergebnis dann als Workflow-Artifact).
 
 on:
@@ -17,7 +20,29 @@ permissions:
   contents: write
 
 jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag-Version mit pom.xml abgleichen
+        run: |
+          pom_version=$(python3 -c "import xml.etree.ElementTree as E; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(E.parse('pom.xml').getroot().find('m:version',ns).text)")
+          case "$GITHUB_REF" in
+            refs/tags/*)
+              tag_version="${GITHUB_REF_NAME#v}"
+              if [ "$tag_version" != "$pom_version" ]; then
+                echo "::error::Tag $GITHUB_REF_NAME (Version $tag_version) passt nicht zur Version $pom_version im pom.xml. Version im pom.xml anpassen, committen und den Tag neu setzen."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::notice::Kein Tag-Lauf (manuell gestartet): Versionsabgleich übersprungen, pom.xml-Version ist $pom_version."
+              ;;
+          esac
+
   anleitung-pdf:
+    needs: version-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +62,7 @@ jobs:
           if-no-files-found: error
 
   windows-exe:
-    needs: anleitung-pdf
+    needs: [version-check, anleitung-pdf]
     runs-on: windows-latest
     defaults:
       run:
