@@ -4,6 +4,7 @@ name: Windows-Release bauen
 # Java-Runtime (jpackage), erstellt das GitHub-Release und hängt die Dateien an:
 #   - Spielstandsanzeige-<version>.exe  → Installer (ohne Adminrechte, Startmenü-Eintrag)
 #   - ...-windows-portable.zip          → entpacken und Spielstandsanzeige.exe starten
+#   - SHA256SUMS.txt                    → SHA-256-Prüfsummen von Installer und ZIP
 #   - Spielstandsanzeige-Anleitung.pdf  → Bedienungsanleitung (aus docs/anleitung.md)
 # Release veröffentlichen: <version> im pom.xml auf 1.2.3 setzen, committen, dann
 #   git tag v1.2.3 && git push origin v1.2.3
@@ -135,6 +136,18 @@ jobs:
             --dest target/app
           Compress-Archive -Path target/app/Spielstandsanzeige -DestinationPath "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip"
 
+      # Platzhalter für die Code-Signierung (SignPath Foundation, noch nicht beantragt):
+      # Der Signaturschritt gehört HIERHER, vor die Prüfsummen — signiert werden Installer-EXE
+      # und Spielstandsanzeige.exe in target/app, danach erst die ZIP-Datei bauen und hashen.
+
+      - name: SHA-256-Prüfsummen erzeugen
+        run: |
+          $files = @(Get-ChildItem target/installer/*.exe) + @(Get-Item "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip")
+          # Format wie `sha256sum`: "<hash> *<datei>", Zeilenende LF
+          $lines = $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()) *$($_.Name)" }
+          [System.IO.File]::WriteAllText("$PWD/target/SHA256SUMS.txt", ($lines -join "`n") + "`n")
+          Get-Content target/SHA256SUMS.txt
+
       - name: Anleitung-PDF übernehmen
         uses: actions/download-artifact@v4
         with:
@@ -154,6 +167,7 @@ jobs:
           gh release upload $tag `
             (Get-ChildItem target/installer/*.exe).FullName `
             "target/Spielstandsanzeige-$env:APP_VERSION-windows-portable.zip" `
+            target/SHA256SUMS.txt `
             "target/anleitung/Spielstandsanzeige-Anleitung.pdf" `
             --clobber
 
@@ -164,4 +178,5 @@ jobs:
           path: |
             target/installer/*.exe
             target/*.zip
+            target/SHA256SUMS.txt
             target/anleitung/*.pdf
