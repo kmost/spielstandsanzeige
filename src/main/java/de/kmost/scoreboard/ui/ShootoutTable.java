@@ -12,8 +12,10 @@ import javafx.scene.layout.Region;
 
 /**
  * Wurf-Tabelle des 7-m-Werfens, gemeinsam für Kampfgericht-Konsole und Publikumsanzeige:
- * oben dezente Rundennummern, darunter je Team die Trefferfolge (● Tor, ○ Fehlwurf).
- * Passen nicht mehr alle Runden hinein, verlassen die ältesten die Tabelle („…“) —
+ * oben dezente Rundennummern, darunter je Team die Trefferfolge (⚽ Tor, ✋ Fehlwurf).
+ * Die ersten fünf Runden (die regulären Schützen) stehen von Anfang an in der Tabelle, auch
+ * solange noch nicht geworfen wurde; ihre Zellen behalten den Platz der Symbole, damit sich
+ * beim Werfen nichts verschiebt. Passen nicht mehr alle Runden hinein, verlassen die ältesten die Tabelle („…“) —
  * die jüngsten Würfe bleiben immer sichtbar. Aussehen (Schriftgrößen, Farben) bestimmen
  * die übergebenen Style-Klassen; die Tabelle aktualisiert sich bei jedem Wurf und bei
  * „Wurf zurücknehmen“ selbst.
@@ -22,6 +24,12 @@ public final class ShootoutTable {
 
     /** Sichtbare Runden; ältere Runden verlassen die Tabelle per „…“. */
     public static final int VISIBLE_ROUNDS = 15;
+
+    /** Treffer: Ball. */
+    static final String GOAL_SYMBOL = "⚽";
+
+    /** Fehlwurf: Hand (der Torwart hat gehalten). */
+    static final String MISS_SYMBOL = "✋";
 
     private final Shootout shootout;
     private final String numberStyle;
@@ -58,7 +66,7 @@ public final class ShootoutTable {
         table.getChildren().clear();
         List<Shootout.Attempt> home = shootout.attemptsFor(TeamSide.HOME);
         List<Shootout.Attempt> guest = shootout.attemptsFor(TeamSide.GUEST);
-        int rounds = Math.max(home.size(), guest.size());
+        int rounds = Math.max(Shootout.THROWERS_PER_TEAM, Math.max(home.size(), guest.size()));
         int firstRound = Math.max(0, rounds - VISIBLE_ROUNDS);
         addCell(0, 1, TeamSide.HOME.label(), teamStyle);
         addCell(0, 2, TeamSide.GUEST.label(), teamStyle);
@@ -70,21 +78,25 @@ public final class ShootoutTable {
         }
         for (int round = firstRound; round < rounds; round++, column++) {
             addCell(column, 0, String.valueOf(round + 1), numberStyle);
-            if (round < home.size()) {
-                addCell(column, 1, home.get(round).goal() ? "●" : "○", symbolStyle);
-            }
-            if (round < guest.size()) {
-                addCell(column, 2, guest.get(round).goal() ? "●" : "○", symbolStyle);
-            }
+            addThrow(column, 1, round < home.size() ? home.get(round) : null);
+            addThrow(column, 2, round < guest.size() ? guest.get(round) : null);
         }
     }
 
-    private void addCell(int column, int row, String text, String styleClass) {
+    /** Wurf eines Teams in der Runde; {@code null} = noch nicht geworfen (unsichtbarer Platzhalter). */
+    private void addThrow(int column, int row, Shootout.Attempt attempt) {
+        Label label = addCell(column, row,
+                attempt != null && !attempt.goal() ? MISS_SYMBOL : GOAL_SYMBOL, symbolStyle);
+        label.setVisible(attempt != null);
+    }
+
+    private Label addCell(int column, int row, String text, String styleClass) {
         Label label = new Label(text);
         label.getStyleClass().add(styleClass);
         // nie mit „…“ kürzen: zu breite Tabellen werden vom Aufrufer eingepasst
         label.setMinWidth(Region.USE_PREF_SIZE);
         table.add(label, column, row);
         GridPane.setHalignment(label, column == 0 ? HPos.LEFT : HPos.CENTER);
+        return label;
     }
 }

@@ -120,8 +120,9 @@ Spielstands definieren die Faktoren nur die Verhältnisse zueinander.
   bleibt. Die Strafen-Spalten außen behalten die volle Zeilenhöhe, alle übrigen Zeilen und
   Spalten bleiben unverändert (`DisplayWindow.arrangeCenter`). Die Liste ist dieselbe Tabelle wie in
   der Kampfgericht-Konsole (`ui/ShootoutTable`): Rundennummern, Zeilen „Heim“ und „Gast“,
-  ● Tor / ○ Fehlwurf, höchstens 15 Runden (ältere verlassen sie per „…“, die jüngsten bleiben
-  sichtbar). Schrift: `SHOOTOUT_TABLE_EM` (0.9 em der Basis × Faktor Statuszeile); ist die Liste
+  ⚽ Tor / ✋ Fehlwurf. Die ersten fünf Runden (die regulären Schützen) stehen von Anfang an
+  darin, ihre noch leeren Zellen reservieren den Platz der Symbole; höchstens 15 Runden (ältere
+  verlassen sie per „…“, die jüngsten bleiben sichtbar). Schrift: `SHOOTOUT_TABLE_EM` (0.9 em der Basis × Faktor Statuszeile); ist die Liste
   breiter oder höher als ihre Hälfte, wird sie samt Uhr-Panel proportional eingepasst (`FitBox`),
   nie gekürzt.
 - Teamnamen brechen ab `TEAM_NAME_MAX_WIDTH_SHARE` (40 %) der Fensterbreite um.

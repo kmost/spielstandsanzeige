@@ -425,6 +425,8 @@ class DisplayWindowTest {
             layout(window.scene());
         });
         assertEquals(List.of("Heim", "Gast"), texts(window, "shootout-team"));
+        assertEquals(List.of("1", "2", "3", "4", "5"), texts(window, "shootout-number"),
+                "die ersten fünf Runden stehen von Anfang an in der Liste");
         assertTrue(symbols(window, TeamSide.HOME).isEmpty());
 
         fx(() -> {
@@ -433,16 +435,16 @@ class DisplayWindowTest {
             state.recordShootoutAttempt(false); // Heim
             layout(window.scene());
         });
-        assertEquals(List.of("●", "○"), symbols(window, TeamSide.HOME));
-        assertEquals(List.of("○"), symbols(window, TeamSide.GUEST));
-        assertEquals(List.of("1", "2"), texts(window, "shootout-number"));
+        assertEquals(List.of("⚽", "✋"), symbols(window, TeamSide.HOME));
+        assertEquals(List.of("✋"), symbols(window, TeamSide.GUEST));
+        assertEquals(List.of("1", "2", "3", "4", "5"), texts(window, "shootout-number"));
 
         fx(() -> {
             state.undoShootoutAttempt();
             layout(window.scene());
         });
-        assertEquals(List.of("●"), symbols(window, TeamSide.HOME));
-        assertEquals(List.of("○"), symbols(window, TeamSide.GUEST));
+        assertEquals(List.of("⚽"), symbols(window, TeamSide.HOME));
+        assertEquals(List.of("✋"), symbols(window, TeamSide.GUEST));
 
         // Heim trifft immer, Gast nie: irgendwann steht der Sieger fest
         fx(() -> {
@@ -475,7 +477,7 @@ class DisplayWindowTest {
         assertEquals("18", numbers.get(14));
         assertEquals(2, texts(window, "shootout-symbol").stream().filter("…"::equals).count(),
                 "je Team eine Auslassung für die verdrängten Runden");
-        assertEquals(15, symbols(window, TeamSide.HOME).stream().filter("●"::equals).count());
+        assertEquals(15, symbols(window, TeamSide.HOME).stream().filter("⚽"::equals).count());
     }
 
     @ParameterizedTest(name = "{0}×{1}")
