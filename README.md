@@ -88,8 +88,8 @@ weil neue, wenig verbreitete Programme keine „Reputation“ haben. Was hilft:
   vergleichen:
 
   ```powershell
-  Get-FileHash .\Spielstandsanzeige-1.2.0-windows-portable.zip -Algorithm SHA256
-  # oder: certutil -hashfile Spielstandsanzeige-1.2.0-windows-portable.zip SHA256
+  Get-FileHash .\Spielstandsanzeige-1.3.0-windows-portable.zip -Algorithm SHA256
+  # oder: certutil -hashfile Spielstandsanzeige-1.3.0-windows-portable.zip SHA256
   ```
 
   Der Hash muss mit dem Eintrag in `SHA256SUMS.txt` übereinstimmen (Groß-/Kleinschreibung
