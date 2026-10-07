@@ -16,6 +16,7 @@ import de.kmost.scoreboard.model.TeamTimeout;
 import de.kmost.scoreboard.ui.AppIcon;
 import de.kmost.scoreboard.ui.BannerConfig;
 import de.kmost.scoreboard.ui.FontScale;
+import de.kmost.scoreboard.ui.ShootoutTable;
 import de.kmost.scoreboard.ui.Theme;
 import de.kmost.scoreboard.ui.TimeFormatter;
 import javafx.beans.InvalidationListener;
@@ -67,6 +68,9 @@ import javafx.stage.Stage;
  *   Zeile 1 (38 %):  Strafen Heim | UHR + Status | Strafen Gast
  *   Zeile 2 (38 %):  TORE Heim | Phase | TORE Gast
  *   Zeile 3 (24 %):  Teamname + Timeout-Punkte je Seite
+ *
+ * Beim 7-m-Werfen teilt sich die Mittelspalte der Zeile 1: oben die auf die halbe
+ * Höhe verkleinerte Uhr, darunter die Wurf-Liste (siehe arrangeCenter).
  *
  * Die Basis-Schriftgröße ist an die Höhe des Spielstand-Bereichs gebunden,
  * alle Größen im CSS sind in em — die Schriftgrößen definieren dadurch nur
@@ -214,7 +218,9 @@ public class DisplayWindow {
         }
         GameClock clock = state.clock();
 
-        Node clockDisplay = buildClockDisplay(state, clock);
+        // beim 7-m-Werfen schrumpft die Uhr auf SHOOTOUT_CLOCK_SHARE (1 = volle Zeilenhöhe)
+        DoubleProperty clockShrink = new SimpleDoubleProperty(1);
+        Node clockDisplay = buildClockDisplay(state, clock, clockShrink);
 
         Label timeoutLabel = new Label();
         timeoutLabel.getStyleClass().add("timeout");
@@ -232,8 +238,12 @@ public class DisplayWindow {
         topRow.getColumnConstraints().addAll(percentColumns(CLOCK_ROW_COLUMNS));
         topRow.setAlignment(Pos.CENTER);
         topRow.add(buildPenaltyColumn(state, TeamSide.HOME), 0, 0);
-        topRow.add(clockBox, 1, 0);
         topRow.add(buildPenaltyColumn(state, TeamSide.GUEST), 2, 0);
+        // (die Mittelspalte kommt per arrangeCenter zwischen die beiden, siehe unten)
+        // Mittelspalte: die Uhr allein, beim 7-m-Werfen Uhr (halbe Höhe) über der Wurf-Liste
+        state.shootoutProperty().addListener((obs, oldShootout, shootout) ->
+                arrangeCenter(topRow, clockBox, clockShrink, shootout));
+        arrangeCenter(topRow, clockBox, clockShrink, state.shootoutProperty().get());
 
         // Die Halbzeit-Info steht abgekürzt zwischen den Toranzeigen — das spart die
         // Statuszeile unter der Uhr und lässt Luft für Header/Footer
@@ -301,19 +311,64 @@ public class DisplayWindow {
     }
 
     /**
+     * Belegt die Mittelspalte der Uhr-Zeile: ohne 7-m-Werfen steht dort die Uhr (Raster
+     * unverändert); sobald ein 7-m-Werfen existiert — auch nach feststehendem Sieger, damit
+     * das Layout bis zum nächsten Spiel stabil bleibt — teilt sich die Spalte in zwei Hälften:
+     * oben das auf {@code SHOOTOUT_CLOCK_SHARE} verkleinerte Uhr-Panel, darunter die Wurf-Liste.
+     * Die Strafen-Spalten außen sind davon nicht betroffen.
+     */
+    private void arrangeCenter(GridPane topRow, VBox clockBox, DoubleProperty clockShrink,
+                               Shootout shootout) {
+        topRow.getChildren().removeIf(node -> GridPane.getColumnIndex(node) != null
+                && GridPane.getColumnIndex(node) == 1);
+        if (shootout == null) {
+            clockShrink.set(1);
+            placeCenter(topRow, clockBox);
+            return;
+        }
+        clockShrink.set(SHOOTOUT_CLOCK_SHARE);
+        FitBox clockPanel = new FitBox(clockBox);
+
+        ShootoutTable list = new ShootoutTable(shootout, "shootout-number", "shootout-team",
+                "shootout-symbol", 0, 0);
+        bindFontSize(list.node(), SHOOTOUT_TABLE_EM, statusScale);
+        FitBox listPanel = new FitBox(list.node());
+
+        GridPane center = new GridPane();
+        center.setMinHeight(0);
+        center.getColumnConstraints().add(percentColumn(100));
+        RowConstraints top = new RowConstraints();
+        top.setPercentHeight(100 * SHOOTOUT_CLOCK_SHARE);
+        top.setVgrow(Priority.ALWAYS);
+        RowConstraints bottom = new RowConstraints();
+        bottom.setPercentHeight(100 * (1 - SHOOTOUT_CLOCK_SHARE));
+        bottom.setVgrow(Priority.ALWAYS);
+        center.getRowConstraints().addAll(top, bottom);
+        center.add(clockPanel, 0, 0);
+        center.add(listPanel, 0, 1);
+        placeCenter(topRow, center);
+    }
+
+    /** Mittelspalte immer an derselben Stelle der Kinderliste (zwischen den Strafen-Spalten): gleiche Zeichenreihenfolge. */
+    private static void placeCenter(GridPane topRow, Node center) {
+        GridPane.setConstraints(center, 1, 0);
+        topRow.getChildren().add(Math.min(1, topRow.getChildren().size()), center);
+    }
+
+    /**
      * Spieluhr als Zeile fester Ziffern-Zellen: jede Ziffer steht in einer Zelle
      * mit der Breite der breitesten Ziffer der aktuellen Schrift, der Doppelpunkt
      * behält seine natürliche Breite — beim Zählen bewegt sich dadurch nichts,
      * auch bei Schriften mit unterschiedlich breiten Ziffern.
      */
-    private Node buildClockDisplay(GameState state, GameClock clock) {
+    private Node buildClockDisplay(GameState state, GameClock clock, DoubleProperty shrink) {
         HBox box = new HBox();
         box.setAlignment(Pos.CENTER);
         // Schriftgröße auf dem Container, die Ziffern-Zellen erben sie
         box.styleProperty().bind(Bindings.createStringBinding(
                 () -> String.format(Locale.US, "-fx-font-size: %.2fem; ",
-                        CLOCK_EM * clockScale.get()),
-                clockScale));
+                        CLOCK_EM * clockScale.get() * shrink.get()),
+                clockScale, shrink));
         StringBinding text = Bindings.createStringBinding(
                 () -> TimeFormatter.formatClock(clock.elapsedMillisProperty().get(),
                         clock.currentPeriodEndMillis(), state.config().direction()),
@@ -375,7 +430,7 @@ public class DisplayWindow {
     }
 
     /** Schriftgröße eines Spielstand-Elements: Standard-em mal Theme-Größenfaktor. */
-    private void bindFontSize(Label label, double baseEm, DoubleProperty scale) {
+    private void bindFontSize(Node label, double baseEm, DoubleProperty scale) {
         label.styleProperty().bind(Bindings.createStringBinding(
                 () -> String.format(Locale.US, "-fx-font-size: %.2fem; ", baseEm * scale.get()),
                 scale));
@@ -445,31 +500,9 @@ public class DisplayWindow {
                         state.config().profile().teamTimeoutsPerGame()),
                 state.timeoutsUsedProperty(side)));
 
-        // Trefferfolge des 7-m-Werfens (● Tor, ○ Fehlwurf); erscheint erst mit dem ersten Wurf
-        Label shootoutLine = new Label();
-        shootoutLine.getStyleClass().add("shootout-attempts");
-        bindFontSize(shootoutLine, PENALTY_EM, statusScale);
-        shootoutLine.managedProperty().bind(shootoutLine.visibleProperty());
-        shootoutLine.visibleProperty().bind(shootoutLine.textProperty().isNotEmpty());
-        state.shootoutProperty().addListener((obs, oldShootout, shootout) ->
-                bindShootoutLine(shootoutLine, shootout, side));
-        bindShootoutLine(shootoutLine, state.shootoutProperty().get(), side);
-
-        VBox cell = new VBox(NAME_CELL_SPACING, nameLabel, timeoutDots, shootoutLine);
+        VBox cell = new VBox(NAME_CELL_SPACING, nameLabel, timeoutDots);
         cell.setAlignment(Pos.TOP_CENTER);
         return cell;
-    }
-
-    /** Sichtbare Würfe je Team; ältere verlassen die Anzeige per „…“ statt die jüngsten abzuschneiden. */
-
-    private static void bindShootoutLine(Label label, Shootout shootout, TeamSide side) {
-        label.textProperty().unbind();
-        if (shootout == null) {
-            label.setText("");
-            return;
-        }
-        label.textProperty().bind(Bindings.createStringBinding(
-                () -> shootout.symbols(side, SHOOTOUT_VISIBLE_ATTEMPTS), shootout.attempts()));
     }
 
     /**

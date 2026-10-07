@@ -96,9 +96,9 @@ gewichtet und auf 100 % normalisiert werden (`DisplayWindow.weightedRow`):
 
 | Zeile | Inhalt | Standardanteil | Größenfaktor |
 |---|---|---|---|
-| 1 | Strafen Heim · Uhr + Timeout-Chip · Strafen Gast | 38 % | `FontScale.CLOCK` |
+| 1 | Strafen Heim · Uhr + Timeout-Chip (beim 7-m-Werfen darunter die Wurf-Liste, siehe unten) · Strafen Gast | 38 % | `FontScale.CLOCK` |
 | 2 | Tore Heim · Phase („1. HZ“/„Pause“/„Ende“; in der Verlängerung zweizeilig „1. Verlängerung“ + „2. HZ“, eingepasst statt gekürzt) · Tore Gast | 38 % | `FontScale.SCORE` |
-| 3 | Teamname + Timeout-Punkte je Seite (beim 7-m-Werfen zusätzlich die Trefferfolge ● Tor / ○ Fehlwurf) | 24 % | `FontScale.TEAM_NAME` |
+| 3 | Teamname + Timeout-Punkte je Seite | 24 % | `FontScale.TEAM_NAME` |
 
 Gewichtssumme = `ROW_CLOCK·Uhr + ROW_SCORE·Tore + ROW_NAMES·Namen` (Standardanteile 38/38/24 %). Weil die Basis-Schrift
 durch dieselbe Summe geteilt wird, behält jedes Element sein Verhältnis zur
@@ -113,6 +113,17 @@ Spielstands definieren die Faktoren nur die Verhältnisse zueinander.
   Strafen dazukommen oder auslaufen), Uhr mittig, darunter der Timeout-Chip.
 - Zeilen 2 und 3 (`SCORE_ROW_COLUMNS`): `42 % | 16 % | 42 %` — identische Spalten, damit die
   Teamnamen exakt unter ihren Toren stehen.
+- **Beim 7-m-Werfen** teilt sich die Mittelspalte der Zeile 1 in zwei gleich hohe Hälften
+  (`SHOOTOUT_CLOCK_SHARE` = 0.5): oben das Uhr-Panel (Uhr + Timeout-Chip), dessen Uhr-Schrift
+  im selben Verhältnis schrumpft, darunter die Wurf-Liste. Das gilt, sobald ein 7-m-Werfen
+  existiert — auch nach feststehendem Sieger, damit das Layout bis zum nächsten Spiel stabil
+  bleibt. Die Strafen-Spalten außen behalten die volle Zeilenhöhe, alle übrigen Zeilen und
+  Spalten bleiben unverändert (`DisplayWindow.arrangeCenter`). Die Liste ist dieselbe Tabelle wie in
+  der Kampfgericht-Konsole (`ui/ShootoutTable`): Rundennummern, Zeilen „Heim“ und „Gast“,
+  ● Tor / ○ Fehlwurf, höchstens 15 Runden (ältere verlassen sie per „…“, die jüngsten bleiben
+  sichtbar). Schrift: `SHOOTOUT_TABLE_EM` (0.9 em der Basis × Faktor Statuszeile); ist die Liste
+  breiter oder höher als ihre Hälfte, wird sie samt Uhr-Panel proportional eingepasst (`FitBox`),
+  nie gekürzt.
 - Teamnamen brechen ab `TEAM_NAME_MAX_WIDTH_SHARE` (40 %) der Fensterbreite um.
 - Außenabstand des Spielstand-Rasters: `GRID_PADDING_VERTICAL/HORIZONTAL` (10/15 px).
 

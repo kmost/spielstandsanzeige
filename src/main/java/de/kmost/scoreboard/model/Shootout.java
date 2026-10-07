@@ -78,26 +78,6 @@ public class Shootout {
         return attempts.stream().filter(attempt -> attempt.side() == side).toList();
     }
 
-    /** Trefferfolge eines Teams als Symbole: ● Tor, ○ Fehlwurf. */
-    public String symbols(TeamSide side) {
-        return symbols(side, Integer.MAX_VALUE);
-    }
-
-    /**
-     * Trefferfolge, begrenzt auf die letzten {@code maxAttempts} Würfe: Passt
-     * nicht alles auf die Anzeige, verlassen die ältesten Würfe das Bild
-     * (Auslassung „…“) — die jüngsten bleiben immer sichtbar.
-     */
-    public String symbols(TeamSide side, int maxAttempts) {
-        java.util.List<Attempt> team = attemptsFor(side);
-        int first = Math.max(0, team.size() - maxAttempts);
-        StringBuilder text = new StringBuilder(first > 0 ? "…" : "");
-        for (Attempt attempt : team.subList(first, team.size())) {
-            text.append(text.isEmpty() ? "" : " ").append(attempt.goal() ? "●" : "○");
-        }
-        return text.toString();
-    }
-
     public ObservableList<Attempt> attempts() {
         return attemptsView;
     }

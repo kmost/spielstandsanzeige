@@ -105,9 +105,12 @@ nötig.
   oder **„Kein Tor“**. Den Wechsel der Schützen, das vorzeitige Ende bei
   uneinholbarem Vorsprung, das Sudden Death nach 5 Schützen je Team und die
   Siegermeldung übernimmt das Programm. Jeder Treffer zählt aufs
-  Endergebnis; die Anzeige zeigt die Trefferfolge unter den Teamnamen
-  (● Tor, ○ Fehlwurf). Eine Fehleingabe machen Sie mit **„↩ Wurf
-  zurücknehmen“** rückgängig.
+  Endergebnis. Auf der Publikumsanzeige wird die Uhr dabei halb so hoch, und
+  darunter erscheint in der Mitte eine Liste der Würfe (Rundennummern, Zeilen
+  „Heim“ und „Gast“, ● Tor, ○ Fehlwurf — dieselbe Tabelle wie im
+  Kampfgericht, höchstens 15 Runden). Sie bleibt nach der Siegermeldung
+  stehen. Eine Fehleingabe machen Sie mit **„↩ Wurf zurücknehmen“**
+  rückgängig.
 - Soll das **Unentschieden stehen bleiben**, beenden Sie das Spiel mit
   **„🏁 Beenden“** (mit Rückfrage). Der Knopf erscheint nur bei Gleichstand nach
   dem regulären Spielende, solange weder Verlängerung noch 7-m-Werfen gestartet

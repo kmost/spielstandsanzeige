@@ -61,9 +61,26 @@
     -fx-text-fill: -color-timeout;
 }
 
-.shootout-attempts {
+/* Wurf-Liste des 7-m-Werfens (Mittelspalte): Rundennummern dezent, Zeilenbeschriftung
+   in Statusfarbe, Treffer ● / Fehlwurf ○ in der Teamnamen-Farbe. Schriftgröße der Liste
+   kommt aus DisplayWindow (em der Basis), die Klassen skalieren relativ dazu */
+.shootout-number {
+    -fx-text-fill: -color-status;
+    -fx-opacity: 0.55;
+    -fx-font-size: 0.8em;
+    -fx-padding: 0 0.3em 0 0.3em;
+}
+
+.shootout-team {
+    -fx-text-fill: -color-status;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0.6em 0 0;
+}
+
+.shootout-symbol {
     -fx-text-fill: -color-team-name;
     -fx-font-weight: bold;
+    -fx-padding: 0 0.3em 0 0.3em;
 }
 
 /* Schriftgröße kommt nicht aus dem em-Raster des Spielstands, sondern wird in
