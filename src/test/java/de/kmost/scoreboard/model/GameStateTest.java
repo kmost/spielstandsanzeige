@@ -276,7 +276,7 @@ class GameStateTest {
     @Test
     void teamTimeoutEndsAutomaticallyWithSignal() {
         AtomicInteger hornCount = new AtomicInteger();
-        state.setOnTimeoutEnd(hornCount::incrementAndGet);
+        state.addOnTimeoutEnd(hornCount::incrementAndGet);
         state.clock().start();
         state.startTeamTimeout(TeamSide.GUEST);
         time.advanceMillis(60_000);
@@ -304,7 +304,7 @@ class GameStateTest {
     @Test
     void resumingClockEndsActiveTimeoutWithoutSignal() {
         AtomicInteger hornCount = new AtomicInteger();
-        state.setOnTimeoutEnd(hornCount::incrementAndGet);
+        state.addOnTimeoutEnd(hornCount::incrementAndGet);
         state.clock().start();
         state.startTeamTimeout(TeamSide.HOME);
         state.clock().start(); // Kampfgericht setzt das Spiel fort
@@ -376,7 +376,7 @@ class GameStateTest {
     @Test
     void shootoutEndFiresSignal() {
         AtomicInteger hornCount = new AtomicInteger();
-        state.setOnShootoutEnd(hornCount::incrementAndGet);
+        state.addOnShootoutEnd(hornCount::incrementAndGet);
         finishRegulation();
         state.startShootout(TeamSide.HOME);
         for (int i = 0; i < 3; i++) {
@@ -484,5 +484,152 @@ class GameStateTest {
         state.endGame();
         state.endGame();
         assertTrue(state.isOver());
+    }
+
+    @Test
+    void canStartTeamTimeoutPropertyFollowsPhaseAndActiveTimeout() {
+        assertFalse(state.canStartTeamTimeoutProperty().get()); // noch nicht gestartet
+        state.clock().start();
+        assertTrue(state.canStartTeamTimeoutProperty().get());
+        state.startTeamTimeout(TeamSide.HOME);
+        assertFalse(state.canStartTeamTimeoutProperty().get()); // eines läuft schon
+        state.endTeamTimeout();
+        assertTrue(state.canStartTeamTimeoutProperty().get()); // Uhr pausiert: erlaubt
+        state.abortGame();
+        assertFalse(state.canStartTeamTimeoutProperty().get());
+    }
+
+    @Test
+    void nextSegmentCanBeStartedInBreakAndAfterRegulation() {
+        assertFalse(state.canStartNextSegmentProperty().get());
+        state.clock().start();
+        assertFalse(state.canStartNextSegmentProperty().get());
+        time.advanceMillis(60_000);
+        state.tick();
+        assertTrue(state.canStartNextSegmentProperty().get()); // Halbzeitpause
+        state.startNextSegment();
+        assertEquals(2, state.clock().periodProperty().get());
+        assertFalse(state.canStartNextSegmentProperty().get());
+
+        time.advanceMillis(60_000);
+        state.tick(); // Unentschieden nach regulärem Ende: Verlängerung möglich
+        assertTrue(state.canStartNextSegmentProperty().get());
+        state.startNextSegment();
+        assertEquals(3, state.clock().periodProperty().get());
+        assertEquals(GameClock.Phase.RUNNING, state.clock().phaseProperty().get());
+    }
+
+    @Test
+    void startNextSegmentDoesNothingWhenNotAllowed() {
+        state.clock().start();
+        state.startNextSegment();
+        assertEquals(1, state.clock().periodProperty().get());
+    }
+
+    @Test
+    void shootoutAndEndGamePropertiesFollowTheDrawState() {
+        assertFalse(state.canStartShootoutProperty().get());
+        assertFalse(state.canEndGameProperty().get());
+        playRegularTime();
+        assertTrue(state.canStartShootoutProperty().get());
+        assertTrue(state.canEndGameProperty().get());
+
+        state.addGoal(TeamSide.HOME); // kein Gleichstand mehr: nichts zu entscheiden
+        assertFalse(state.canEndGameProperty().get());
+        assertTrue(state.canStartShootoutProperty().get());
+        state.removeGoal(TeamSide.HOME);
+        assertTrue(state.canEndGameProperty().get());
+
+        state.startShootout(TeamSide.HOME);
+        assertFalse(state.canStartShootoutProperty().get());
+        assertFalse(state.canEndGameProperty().get());
+    }
+
+    @Test
+    void endGameClosesShootoutAndSegmentProperties() {
+        playRegularTime();
+        state.endGame();
+        assertFalse(state.canStartShootoutProperty().get());
+        assertFalse(state.canStartNextSegmentProperty().get());
+        assertFalse(state.canEndGameProperty().get());
+    }
+
+    @Test
+    void severalTimeoutEndListenersAllFireAndCanBeRemoved() {
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger second = new AtomicInteger();
+        Runnable firstListener = first::incrementAndGet;
+        state.addOnTimeoutEnd(firstListener);
+        state.addOnTimeoutEnd(second::incrementAndGet);
+        state.clock().start();
+        state.startTeamTimeout(TeamSide.HOME);
+        time.advanceMillis(60_000);
+        state.tick();
+        assertEquals(1, first.get());
+        assertEquals(1, second.get());
+
+        state.removeOnTimeoutEnd(firstListener);
+        state.startTeamTimeout(TeamSide.GUEST);
+        time.advanceMillis(60_000);
+        state.tick();
+        assertEquals(1, first.get());
+        assertEquals(2, second.get());
+    }
+
+    @Test
+    void severalShootoutEndListenersAllFire() {
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger second = new AtomicInteger();
+        state.addOnShootoutEnd(first::incrementAndGet);
+        state.addOnShootoutEnd(second::incrementAndGet);
+        playRegularTime();
+        state.startShootout(TeamSide.HOME);
+        for (int i = 0; i < 3; i++) {
+            state.recordShootoutAttempt(true);  // Heim trifft
+            state.recordShootoutAttempt(false); // Gast verfehlt
+        }
+        assertEquals(1, first.get());
+        assertEquals(1, second.get());
+    }
+
+    /** Wie die UI: Die Properties werden gebunden und beobachtet, nicht nur abgefragt. */
+    @Test
+    void boundRulePropertiesStayCurrentThroughAGame() {
+        javafx.beans.property.BooleanProperty timeout = new javafx.beans.property.SimpleBooleanProperty();
+        javafx.beans.property.BooleanProperty next = new javafx.beans.property.SimpleBooleanProperty();
+        javafx.beans.property.BooleanProperty shootout = new javafx.beans.property.SimpleBooleanProperty();
+        javafx.beans.property.BooleanProperty end = new javafx.beans.property.SimpleBooleanProperty();
+        timeout.bind(state.canStartTeamTimeoutProperty());
+        next.bind(state.canStartNextSegmentProperty());
+        shootout.bind(state.canStartShootoutProperty());
+        end.bind(state.canEndGameProperty());
+        // Beobachter, die bei jeder Änderung neu lesen, wie es die Knöpfe der Oberfläche tun
+        for (javafx.beans.value.ObservableValue<Boolean> value : java.util.List.of(timeout, next, shootout, end)) {
+            value.addListener((obs, oldValue, newValue) -> { });
+        }
+
+        assertFalse(timeout.get());
+        state.clock().start();
+        assertTrue(timeout.get());
+        time.advanceMillis(60_000);
+        state.tick(); // Halbzeitpause
+        assertTrue(next.get());
+        assertFalse(timeout.get());
+        state.startNextSegment();
+        assertFalse(next.get());
+        time.advanceMillis(60_000);
+        state.tick(); // Spielende, unentschieden
+        assertTrue(next.get());
+        assertTrue(shootout.get());
+        assertTrue(end.get());
+        state.addGoal(TeamSide.HOME);
+        assertFalse(end.get());
+        assertTrue(shootout.get());
+        state.removeGoal(TeamSide.HOME);
+        assertTrue(end.get());
+        state.endGame();
+        assertFalse(next.get());
+        assertFalse(shootout.get());
+        assertFalse(end.get());
     }
 }

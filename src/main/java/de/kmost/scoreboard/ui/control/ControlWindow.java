@@ -434,9 +434,9 @@ public class ControlWindow {
 
     /** Übernimmt ein neues oder wiederhergestelltes Spiel: Hupe anschließen, Sicherung starten. */
     private void startGame(GameState state) {
-        state.clock().setOnPeriodEnd(horn::play);
-        state.setOnTimeoutEnd(horn::play);
-        state.setOnShootoutEnd(horn::play);
+        state.clock().addOnPeriodEnd(horn::play);
+        state.addOnTimeoutEnd(horn::play);
+        state.addOnShootoutEnd(horn::play);
         if (autosave != null) {
             autosave.dispose();
         }
@@ -656,19 +656,8 @@ public class ControlWindow {
                 () -> nextSegmentText(state),
                 clock.phaseProperty(), clock.periodProperty()));
         nextPeriodButton.getStyleClass().add("big-button");
-        nextPeriodButton.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> state.shootoutProperty().get() != null
-                        || (clock.phaseProperty().get() != GameClock.Phase.HALF_TIME
-                            && !clock.canStartOvertime()),
-                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty(),
-                state.endedProperty()));
-        nextPeriodButton.setOnAction(e -> {
-            if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
-                clock.startNextPeriod();
-            } else {
-                clock.startOvertime();
-            }
-        });
+        nextPeriodButton.disableProperty().bind(state.canStartNextSegmentProperty().not());
+        nextPeriodButton.setOnAction(e -> state.startNextSegment());
 
         Button setTimeButton = new Button("🕑 Zeit stellen…");
         setTimeButton.getStyleClass().add("big-button");
@@ -679,10 +668,7 @@ public class ControlWindow {
         // 7-m-Werfen: wie die Verlängerung erst nach regulärem Spielende möglich
         Button shootoutButton = new Button("🥅 7-m-Werfen…");
         shootoutButton.getStyleClass().add("big-button");
-        shootoutButton.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> state.shootoutProperty().get() != null || !clock.canStartOvertime(),
-                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty(),
-                state.endedProperty()));
+        shootoutButton.disableProperty().bind(state.canStartShootoutProperty().not());
         shootoutButton.setOnAction(e -> startShootout(state));
 
         // Unentschieden nach regulärem Ende: das Kampfgericht kann das Spiel auch ohne
@@ -691,11 +677,7 @@ public class ControlWindow {
         endGameButton.setTooltip(new Tooltip("Spiel bei Unentschieden beenden"));
         endGameButton.getStyleClass().add("big-button");
         endGameButton.setMinWidth(Region.USE_PREF_SIZE);
-        endGameButton.visibleProperty().bind(Bindings.createBooleanBinding(
-                state::canEndGame,
-                clock.phaseProperty(), clock.elapsedMillisProperty(), state.shootoutProperty(),
-                state.endedProperty(), state.scoreProperty(TeamSide.HOME),
-                state.scoreProperty(TeamSide.GUEST)));
+        endGameButton.visibleProperty().bind(state.canEndGameProperty());
         endGameButton.managedProperty().bind(endGameButton.visibleProperty());
         // „Zeit stellen…“ ist nach Spielende ohnehin gesperrt: Platz für „Beenden“ in schmalen Fenstern
         setTimeButton.visibleProperty().bind(endGameButton.visibleProperty().not());
@@ -975,11 +957,7 @@ public class ControlWindow {
         penaltyEntry.setAlignment(Pos.CENTER);
 
         Button timeoutButton = new Button("🟩 Team-Timeout");
-        timeoutButton.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> state.activeTimeoutProperty().get() != null
-                        || (state.clock().phaseProperty().get() != GameClock.Phase.RUNNING
-                            && state.clock().phaseProperty().get() != GameClock.Phase.PAUSED),
-                state.activeTimeoutProperty(), state.clock().phaseProperty()));
+        timeoutButton.disableProperty().bind(state.canStartTeamTimeoutProperty().not());
         timeoutButton.setOnAction(e -> state.startTeamTimeout(side));
 
         Label timeoutsLabel = new Label();

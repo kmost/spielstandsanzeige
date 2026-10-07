@@ -2,20 +2,17 @@ package de.kmost.scoreboard.model;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.LongSupplier;
 
-import javafx.beans.Observable;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.SortedList;
 
 /**
  * Gesamter Spielzustand: Konfiguration, Uhr, Tore, Zeitstrafen und Team-Timeouts.
@@ -24,28 +21,24 @@ import javafx.collections.transformation.SortedList;
  */
 public class GameState {
 
-    /** Älteste Strafe (früheste Ablaufmarke) zuerst. */
-    private static final Comparator<PenaltyTimer> PENALTY_ORDER =
-            Comparator.comparingLong(timer -> timer.endElapsedMillisProperty().get());
-
     private final GameConfig config;
     private final GameClock clock;
     private final LongSupplier nanoSource;
     private final IntegerProperty homeScore = new SimpleIntegerProperty(0);
     private final IntegerProperty guestScore = new SimpleIntegerProperty(0);
-    private final IntegerProperty homeTimeoutsUsed = new SimpleIntegerProperty(0);
-    private final IntegerProperty guestTimeoutsUsed = new SimpleIntegerProperty(0);
-    // der Extraktor meldet Änderungen der Ablaufmarke (Verlängerung, Zeitkorrektur) als Update,
-    // damit die sortierten Sichten neu ordnen — ohne Änderung bei jedem Tick
-    private final ObservableList<PenaltyTimer> homePenalties = penaltyList();
-    private final ObservableList<PenaltyTimer> guestPenalties = penaltyList();
-    private final SortedList<PenaltyTimer> homePenaltiesSorted = new SortedList<>(homePenalties, PENALTY_ORDER);
-    private final SortedList<PenaltyTimer> guestPenaltiesSorted = new SortedList<>(guestPenalties, PENALTY_ORDER);
-    private final ObjectProperty<TeamTimeout> activeTimeout = new SimpleObjectProperty<>();
+    private final PenaltyBoard penalties = new PenaltyBoard();
+    private final TimeoutTracker timeouts = new TimeoutTracker();
     private final ObjectProperty<Shootout> shootout = new SimpleObjectProperty<>();
     private final ReadOnlyBooleanWrapper ended = new ReadOnlyBooleanWrapper(false);
-    private Runnable onTimeoutEnd;
-    private Runnable onShootoutEnd;
+    private final List<Runnable> timeoutEndListeners = new ArrayList<>();
+    private final List<Runnable> shootoutEndListeners = new ArrayList<>();
+    // Regeln, wann etwas möglich ist: Die UI bindet nur daran und dupliziert sie nicht.
+    // Die Bindings müssen die Properties der Uhr lesen (nicht deren Methoden), sonst werden
+    // Änderungen nicht weitergereicht, sobald jemand die Property beobachtet.
+    private final ReadOnlyBooleanWrapper canStartTeamTimeout = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyBooleanWrapper canStartNextSegment = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyBooleanWrapper canStartShootout = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyBooleanWrapper canEndGame = new ReadOnlyBooleanWrapper(false);
 
     public GameState(GameConfig config) {
         this(config, System::nanoTime);
@@ -55,6 +48,25 @@ public class GameState {
         this.config = config;
         this.nanoSource = nanoSource;
         this.clock = new GameClock(config, nanoSource);
+        canStartTeamTimeout.bind(Bindings.createBooleanBinding(
+                () -> timeouts.activeProperty().get() == null
+                        && (clock.phaseProperty().get() == GameClock.Phase.RUNNING
+                            || clock.phaseProperty().get() == GameClock.Phase.PAUSED),
+                timeouts.activeProperty(), clock.phaseProperty()));
+        canStartNextSegment.bind(Bindings.createBooleanBinding(
+                () -> shootout.get() == null
+                        && (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME
+                            || clock.canStartOvertimeProperty().get()),
+                shootout, clock.phaseProperty(), clock.canStartOvertimeProperty()));
+        canStartShootout.bind(Bindings.createBooleanBinding(
+                () -> shootout.get() == null && clock.canStartOvertimeProperty().get(),
+                shootout, clock.canStartOvertimeProperty()));
+        canEndGame.bind(Bindings.createBooleanBinding(
+                () -> !ended.get()
+                        && shootout.get() == null
+                        && clock.canStartOvertimeProperty().get()
+                        && homeScore.get() == guestScore.get(),
+                ended, shootout, clock.canStartOvertimeProperty(), homeScore, guestScore));
     }
 
     public GameConfig config() {
@@ -70,11 +82,12 @@ public class GameState {
     }
 
     public IntegerProperty timeoutsUsedProperty(TeamSide side) {
-        return side == TeamSide.HOME ? homeTimeoutsUsed : guestTimeoutsUsed;
+        return timeouts.usedProperty(side);
     }
 
+    /** Die Strafen eines Teams in der Reihenfolge ihres Anlegens. */
     public ObservableList<PenaltyTimer> penalties(TeamSide side) {
-        return side == TeamSide.HOME ? homePenalties : guestPenalties;
+        return penalties.list(side);
     }
 
     /**
@@ -82,16 +95,11 @@ public class GameState {
      * Ordnet sich bei Verlängerung und Zeitkorrektur neu; schreibgeschützt.
      */
     public ObservableList<PenaltyTimer> sortedPenalties(TeamSide side) {
-        return side == TeamSide.HOME ? homePenaltiesSorted : guestPenaltiesSorted;
-    }
-
-    private static ObservableList<PenaltyTimer> penaltyList() {
-        return FXCollections.observableArrayList(
-                timer -> new Observable[] {timer.endElapsedMillisProperty()});
+        return penalties.sorted(side);
     }
 
     public ObjectProperty<TeamTimeout> activeTimeoutProperty() {
-        return activeTimeout;
+        return timeouts.activeProperty();
     }
 
     public void addGoal(TeamSide side) {
@@ -108,10 +116,8 @@ public class GameState {
     }
 
     public void addPenalty(TeamSide side, String playerNumber) {
-        String number = playerNumber == null || playerNumber.isBlank() ? null : playerNumber.strip();
-        penalties(side).add(new PenaltyTimer(side, number,
-                clock.elapsedMillisProperty().get(),
-                config.profile().penaltyDuration().toMillis()));
+        penalties.add(side, playerNumber, clock.elapsedMillisProperty().get(),
+                config.profile().penaltyDuration().toMillis());
     }
 
     /** Verlängert eine laufende Zeitstrafe auf die doppelte Dauer (2 → 4 Minuten). */
@@ -120,8 +126,7 @@ public class GameState {
     }
 
     public void removePenalty(PenaltyTimer timer) {
-        homePenalties.remove(timer);
-        guestPenalties.remove(timer);
+        penalties.remove(timer);
     }
 
     /**
@@ -129,22 +134,21 @@ public class GameState {
      * Die Anzahl wird nur gezählt, nicht begrenzt — das Kampfgericht entscheidet.
      */
     public void startTeamTimeout(TeamSide side) {
-        if (activeTimeout.get() != null) {
-            return;
-        }
-        GameClock.Phase phase = clock.phaseProperty().get();
-        if (phase != GameClock.Phase.RUNNING && phase != GameClock.Phase.PAUSED) {
+        if (!canStartTeamTimeout.get()) {
             return;
         }
         clock.pause();
-        timeoutsUsedProperty(side).set(timeoutsUsedProperty(side).get() + 1);
-        activeTimeout.set(new TeamTimeout(side, nanoSource.getAsLong(),
-                config.profile().teamTimeoutDuration().toMillis()));
+        timeouts.start(side, nanoSource.getAsLong(), config.profile().teamTimeoutDuration().toMillis());
+    }
+
+    /** Ein Team-Timeout ist möglich, wenn keines läuft und die Uhr läuft oder pausiert ist. */
+    public ReadOnlyBooleanProperty canStartTeamTimeoutProperty() {
+        return canStartTeamTimeout.getReadOnlyProperty();
     }
 
     /** Beendet das laufende Team-Timeout vorzeitig (ohne Signal). */
     public void endTeamTimeout() {
-        activeTimeout.set(null);
+        timeouts.end();
     }
 
     /** Das 7-m-Werfen; {@code null}, solange keines gestartet wurde. */
@@ -158,10 +162,15 @@ public class GameState {
      * wie für eine Verlängerung; nach Spielabbruch nicht möglich).
      */
     public void startShootout(TeamSide startingTeam) {
-        if (shootout.get() != null || !clock.canStartOvertime()) {
+        if (!canStartShootout.get()) {
             return;
         }
         shootout.set(new Shootout(startingTeam));
+    }
+
+    /** Das 7-m-Werfen ist möglich, solange keines läuft und das Spiel regulär zu Ende ist. */
+    public ReadOnlyBooleanProperty canStartShootoutProperty() {
+        return canStartShootout.getReadOnlyProperty();
     }
 
     /** Verbucht den nächsten 7-m-Wurf; ein Tor zählt auf den Spielstand. */
@@ -175,8 +184,10 @@ public class GameState {
         if (goal) {
             addGoal(thrower);
         }
-        if (current.winnerProperty().get() != null && onShootoutEnd != null) {
-            onShootoutEnd.run();
+        if (current.winnerProperty().get() != null) {
+            for (Runnable listener : List.copyOf(shootoutEndListeners)) {
+                listener.run();
+            }
         }
     }
 
@@ -192,13 +203,18 @@ public class GameState {
         }
     }
 
-    public void setOnShootoutEnd(Runnable onShootoutEnd) {
-        this.onShootoutEnd = onShootoutEnd;
+    /** Wird aufgerufen, wenn das 7-m-Werfen einen Sieger hat (z. B. für die Hupe). */
+    public void addOnShootoutEnd(Runnable listener) {
+        shootoutEndListeners.add(listener);
+    }
+
+    public void removeOnShootoutEnd(Runnable listener) {
+        shootoutEndListeners.remove(listener);
     }
 
     /** Bricht das Spiel sofort ab: Uhr stoppt endgültig, ein laufendes Timeout endet. */
     public void abortGame() {
-        activeTimeout.set(null);
+        timeouts.end();
         clock.finish();
     }
 
@@ -207,10 +223,31 @@ public class GameState {
      * solange weder Verlängerung noch 7-m-Werfen gestartet wurden.
      */
     public boolean canEndGame() {
-        return !ended.get()
-                && shootout.get() == null
-                && clock.canStartOvertime()
-                && homeScore.get() == guestScore.get();
+        return canEndGame.get();
+    }
+
+    public ReadOnlyBooleanProperty canEndGameProperty() {
+        return canEndGame.getReadOnlyProperty();
+    }
+
+    /** Der nächste Abschnitt (Halbzeit/Drittel oder Verlängerung) kann gestartet werden. */
+    public ReadOnlyBooleanProperty canStartNextSegmentProperty() {
+        return canStartNextSegment.getReadOnlyProperty();
+    }
+
+    /**
+     * Startet den nächsten Abschnitt: in der Pause die nächste Halbzeit bzw. das nächste Drittel,
+     * nach regulärem Spielende die Verlängerung.
+     */
+    public void startNextSegment() {
+        if (!canStartNextSegment.get()) {
+            return;
+        }
+        if (clock.phaseProperty().get() == GameClock.Phase.HALF_TIME) {
+            clock.startNextPeriod();
+        } else {
+            clock.startOvertime();
+        }
     }
 
     /**
@@ -234,8 +271,13 @@ public class GameState {
         return ended.getReadOnlyProperty();
     }
 
-    public void setOnTimeoutEnd(Runnable onTimeoutEnd) {
-        this.onTimeoutEnd = onTimeoutEnd;
+    /** Wird aufgerufen, wenn ein Team-Timeout abläuft (z. B. für die Hupe), nicht bei vorzeitigem Ende. */
+    public void addOnTimeoutEnd(Runnable listener) {
+        timeoutEndListeners.add(listener);
+    }
+
+    public void removeOnTimeoutEnd(Runnable listener) {
+        timeoutEndListeners.remove(listener);
     }
 
     /**
@@ -273,7 +315,7 @@ public class GameState {
                 clock.phaseProperty().get(), clock.periodProperty().get(), clock.overtimeCount(),
                 clock.elapsedMillisProperty().get(),
                 homeScore.get(), guestScore.get(),
-                homeTimeoutsUsed.get(), guestTimeoutsUsed.get(),
+                timeouts.usedProperty(TeamSide.HOME).get(), timeouts.usedProperty(TeamSide.GUEST).get(),
                 List.copyOf(penaltySnapshots),
                 current == null ? null : current.startingTeam(),
                 current == null ? List.of() : List.copyOf(current.attempts()),
@@ -305,21 +347,20 @@ public class GameState {
                 snapshot.elapsedMillis());
         state.homeScore.set(snapshot.homeScore());
         state.guestScore.set(snapshot.guestScore());
-        state.homeTimeoutsUsed.set(snapshot.homeTimeoutsUsed());
-        state.guestTimeoutsUsed.set(snapshot.guestTimeoutsUsed());
+        state.timeouts.usedProperty(TeamSide.HOME).set(snapshot.homeTimeoutsUsed());
+        state.timeouts.usedProperty(TeamSide.GUEST).set(snapshot.guestTimeoutsUsed());
         long elapsed = snapshot.elapsedMillis();
         for (GameSnapshot.PenaltySnapshot penalty : snapshot.penalties()) {
             if (penalty.side() == null || penalty.startElapsedMillis() < 0
                     || penalty.durationMillis() <= 0) {
                 throw new IllegalArgumentException("Ungültige Zeitstrafe im Spiel-Abbild");
             }
-            PenaltyTimer timer = new PenaltyTimer(penalty.side(), penalty.playerNumber(),
+            PenaltyTimer timer = state.penalties.add(penalty.side(), penalty.playerNumber(),
                     penalty.startElapsedMillis(), penalty.durationMillis());
             if (penalty.extended()) {
                 timer.extend();
             }
             timer.update(elapsed);
-            state.penalties(penalty.side()).add(timer);
         }
         if (snapshot.shootoutStart() != null) {
             Shootout restored = new Shootout(snapshot.shootoutStart());
@@ -346,35 +387,11 @@ public class GameState {
 
     public void tick() {
         clock.tick();
-        long elapsed = clock.elapsedMillisProperty().get();
-        updatePenalties(homePenalties, elapsed);
-        updatePenalties(guestPenalties, elapsed);
-        updateTimeout();
-    }
-
-    private void updateTimeout() {
-        TeamTimeout timeout = activeTimeout.get();
-        if (timeout == null) {
-            return;
-        }
-        // Startet das Kampfgericht die Uhr wieder, ist das Timeout beendet (ohne Signal)
-        if (clock.runningProperty().get()) {
-            activeTimeout.set(null);
-            return;
-        }
-        timeout.update(nanoSource.getAsLong());
-        if (timeout.isExpired()) {
-            activeTimeout.set(null);
-            if (onTimeoutEnd != null) {
-                onTimeoutEnd.run();
+        penalties.update(clock.elapsedMillisProperty().get());
+        if (timeouts.update(nanoSource.getAsLong(), clock.runningProperty().get())) {
+            for (Runnable listener : List.copyOf(timeoutEndListeners)) {
+                listener.run();
             }
         }
-    }
-
-    private static void updatePenalties(ObservableList<PenaltyTimer> penalties, long elapsed) {
-        for (PenaltyTimer timer : penalties) {
-            timer.update(elapsed);
-        }
-        penalties.removeIf(PenaltyTimer::isExpired);
     }
 }
