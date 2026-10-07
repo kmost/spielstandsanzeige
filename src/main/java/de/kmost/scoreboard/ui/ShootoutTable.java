@@ -25,7 +25,7 @@ import javafx.scene.layout.StackPane;
 public final class ShootoutTable {
 
     /** Sichtbare Runden; ältere Runden verlassen die Tabelle per „…“. */
-    public static final int VISIBLE_ROUNDS = 15;
+    public static final int VISIBLE_ROUNDS = 10;
 
     /** Treffer: Ball — auch auf dem Knopf „Tor“ der Konsole. */
     public static final String GOAL_SYMBOL = "⚽";

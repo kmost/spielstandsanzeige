@@ -125,7 +125,7 @@ Spielstands definieren die Faktoren nur die Verhältnisse zueinander.
   sich dabei um wenige Pixel (`DisplayWindow.arrangeCenter`). Die Liste ist dieselbe Tabelle wie in
   der Kampfgericht-Konsole (`ui/ShootoutTable`): Rundennummern, Zeilen „Heim“ und „Gast“,
   ⚽ Tor / ✋ Fehlwurf. Die ersten fünf Runden (die regulären Schützen) stehen von Anfang an
-  darin, ihre noch leeren Zellen reservieren den Platz der Symbole; höchstens 15 Runden (ältere
+  darin, ihre noch leeren Zellen reservieren den Platz der Symbole; höchstens 10 Runden (ältere
   verlassen sie per „…“, die jüngsten bleiben sichtbar). Schrift: `SHOOTOUT_TABLE_EM` (1.6 em der Basis × Faktor Statuszeile); ist die Liste
   breiter oder höher als ihr Platz, wird sie proportional eingepasst (`FitBox`), nie gekürzt —
   bei den üblichen Fenstern deckelt die Höhe der Liste ihre Größe.
