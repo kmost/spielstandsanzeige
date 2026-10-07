@@ -40,6 +40,20 @@ mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
   -Dexec.classpathScope=test -Dpreview.out=/tmp/preview.png
 ```
 
+## Layout der Konsole prüfen
+
+`ControlSnapshots` rendert die Kampfgericht-Konsole in acht typischen Zuständen (Setup,
+laufendes Spiel mit Strafen und Timeout, Halbzeitpause, Unentschieden, Verlängerung,
+7-m-Werfen, Statuszeile) bei zwei Breiten als PNGs. Für Umbauten an der Oberfläche:
+einmal vorher, einmal nachher laufen lassen und die Dateien vergleichen (`cmp`) —
+identische Dateien heißen identische Optik.
+
+```sh
+mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
+  -Dexec.mainClass=de.kmost.scoreboard.ui.control.ControlSnapshots \
+  -Dexec.classpathScope=test -Dsnapshots.dir=/tmp/control-vorher
+```
+
 ## Leitplanken
 
 - **Model bleibt UI-frei:** Alles unter `model/` nutzt nur `javafx.base`
@@ -47,6 +61,10 @@ mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
   Neue Spiellogik bitte dort implementieren und mit Unit-Tests abdecken.
 - **Beide Fenster beobachten denselben `GameState`** über Bindings — kein
   direkter Zustandsabgleich zwischen den Fenstern.
+- **Die Konsole besteht aus kleinen Bausteinen** (`ui/control/`: `SetupPane`, `GamePane`,
+  `ClockPane`, `ShootoutPane`, `PenaltyList`, `StatusBar` …), die sich an Bindings des
+  `GameState` hängen, statt bei Zustandswechseln neu aufgebaut zu werden. Regeln („ist
+  das jetzt möglich?“) gehören ins Model, die Bausteine binden nur daran.
 - **Keine neuen Laufzeit-Abhängigkeiten** ohne guten Grund: Die App soll als
   selbständige EXE/App paketierbar bleiben (Hupe wird z. B. zur Laufzeit
   generiert statt als Audio-Asset mitgeliefert).

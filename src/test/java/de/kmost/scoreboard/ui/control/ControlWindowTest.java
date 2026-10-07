@@ -280,7 +280,7 @@ class ControlWindowTest {
     // --- 7-m-Werfen ---
 
     @Test
-    void shootoutStartsWithChosenTeamAndRebuildsControls() {
+    void shootoutStartsWithChosenTeamAndAddsItsOwnRow() {
         GameState state = createGame();
         finishRegulation(state);
 
@@ -289,9 +289,11 @@ class ControlWindowTest {
         assertNull(state.shootoutProperty().get(), "Abbrechen startet nichts");
         assertEquals(java.util.List.of("Heim beginnt", "Gast beginnt"), dialogs.choices.get(0));
 
+        Button startButton = find("▶ Start");
         dialogs.choiceAnswer = Optional.of(1);
         click("🥅 7-m-Werfen…");
         assertNotNull(state.shootoutProperty().get());
+        assertSame(startButton, find("▶ Start"), "die übrige Spielsteuerung wird nicht neu aufgebaut");
         assertEquals(TeamSide.GUEST, state.shootoutProperty().get().nextThrowerProperty().get());
         assertTrue(fx(() -> all(root(), Label.class).stream()
                 .anyMatch(l -> l.getText() != null && l.getText().startsWith("7-m-Werfen — Gast wirft"))));
@@ -323,6 +325,22 @@ class ControlWindowTest {
         assertTrue(find("❌ Kein Tor").isDisabled());
         assertTrue(fx(() -> all(root(), Label.class).stream()
                 .anyMatch(l -> l.getText() != null && l.getText().startsWith("🏆 Sieger: Heim"))));
+        // die Phasenzeile unter der Uhr folgt dem entschiedenen 7-m-Werfen
+        assertTrue(fx(() -> all(root(), Label.class).stream()
+                .anyMatch(l -> l.getStyleClass().contains("game-phase") && "Spielende".equals(l.getText()))));
+    }
+
+    @Test
+    void gameWithShootoutAlreadyRunningShowsItsRowImmediately() {
+        GameState state = createGame();
+        finishRegulation(state);
+        onFx(() -> state.startShootout(TeamSide.HOME));
+        // wie beim Fortsetzen eines gesicherten Spiels: Fenster bekommt ein Spiel mit laufendem 7-m-Werfen
+        GameState restored = GameState.restore(state.snapshot(), System::nanoTime);
+        onFx(() -> control.gameStateProperty().set(restored));
+        assertEquals(1, fx(() -> buttonsStartingWith(root(), "⚽ Tor").size()));
+        assertTrue(fx(() -> all(root(), Label.class).stream()
+                .anyMatch(l -> l.getText() != null && l.getText().startsWith("7-m-Werfen — Heim wirft"))));
     }
 
     // --- Strafen und Timeouts ---

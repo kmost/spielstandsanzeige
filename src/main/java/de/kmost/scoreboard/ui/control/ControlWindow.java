@@ -1,23 +1,10 @@
 package de.kmost.scoreboard.ui.control;
 
-import java.time.Duration;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
 import de.kmost.scoreboard.diagnostics.ProblemReporter;
-import de.kmost.scoreboard.model.ClockDirection;
 import de.kmost.scoreboard.model.GameClock;
 import de.kmost.scoreboard.model.GameConfig;
-import de.kmost.scoreboard.model.GameMode;
 import de.kmost.scoreboard.model.GameState;
-import de.kmost.scoreboard.model.OvertimeFormat;
-import de.kmost.scoreboard.model.PenaltyTimer;
-import de.kmost.scoreboard.model.Shootout;
-import de.kmost.scoreboard.model.SportProfile;
 import de.kmost.scoreboard.model.TeamSide;
-import de.kmost.scoreboard.model.TeamTimeout;
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.GameAutosave;
 import de.kmost.scoreboard.store.GameSnapshotStore;
@@ -30,44 +17,21 @@ import de.kmost.scoreboard.ui.Theme;
 import de.kmost.scoreboard.ui.TimeFormatter;
 import de.kmost.scoreboard.ui.config.ConfigWindow;
 import de.kmost.scoreboard.ui.display.DisplayWindow;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
-import javafx.beans.InvalidationListener;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.Separator;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TitledPane;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.RowConstraints;
-import javafx.scene.layout.VBox;
-import javafx.scene.transform.Scale;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
-/** Kampfgericht-Konsole: Spiel-Setup, Spielsteuerung und Steuerung der Publikumsanzeige. */
+/**
+ * Kampfgericht-Konsole: Spiel-Setup, Spielsteuerung und Steuerung der Publikumsanzeige.
+ * Das Fenster hält den Spielzustand zusammen (Anlegen, Fortsetzen, Sichern, Schließen);
+ * die Oberfläche selbst steckt in {@link SetupPane}, {@link GamePane} und {@link StatusBar}.
+ */
 public class ControlWindow {
 
     private final Stage stage;
@@ -78,26 +42,14 @@ public class ControlWindow {
     private final DisplayWindow displayWindow;
     private final BorderPane root = new BorderPane();
     private final ProblemReporter reporter = ProblemReporter.shared();
-    private final Label statusLine = new Label();
-    private final PauseTransition statusTimeout = new PauseTransition(javafx.util.Duration.seconds(10));
+    private final StatusBar statusBar = new StatusBar(reporter);
 
     private final TeamRepository teamRepository;
     private final ThemeRepository themeRepository;
     private final GameSnapshotStore snapshotStore;
+    private final SetupPane setupPane;
     private GameAutosave autosave;
     private ConfigWindow configWindow;
-    private final ObservableList<String> knownTeams = FXCollections.observableArrayList();
-    private final Map<TeamSide, TeamNamePicker> teamPickers = new EnumMap<>(TeamSide.class);
-    private final ComboBox<GameMode> modeBox = new ComboBox<>();
-    private final Spinner<Integer> minutesSpinner =
-            new Spinner<>(1, 120, (int) SportProfile.HANDBALL.defaultPeriodDuration().toMinutes());
-    private final ComboBox<ClockDirection> directionBox = new ComboBox<>();
-    private final ComboBox<OvertimeFormat> overtimeFormatBox = new ComboBox<>();
-    private final Spinner<Integer> overtimeMinutesSpinner = new Spinner<>(1, 60,
-            (int) SportProfile.HANDBALL.defaultOvertimePeriodDuration().toMinutes());
-    private final ComboBox<Screen> screenBox = new ComboBox<>();
-    /** Konfiguriertes Standard-Heimteam; steht beim Setup im Heim-Feld vorbelegt. */
-    private String defaultHomeTeam;
 
     public ControlWindow(Stage stage, Horn horn, TeamRepository teamRepository,
                          ThemeRepository themeRepository, GameSnapshotStore snapshotStore) {
@@ -123,9 +75,7 @@ public class ControlWindow {
         this.teamRepository = teamRepository;
         this.themeRepository = themeRepository;
         this.snapshotStore = snapshotStore;
-        buildStatusLine();
-        this.knownTeams.setAll(teamRepository.teamNames());
-        this.defaultHomeTeam = teamRepository.defaultHomeTeam();
+        root.setBottom(statusBar.node());
         this.displayWindow = new DisplayWindow(gameState);
         displayWindow.applyTheme(themeRepository.currentTheme());
         displayWindow.headerBannerProperty().set(themeRepository.currentHeader());
@@ -137,16 +87,11 @@ public class ControlWindow {
             horn.useTone(Horn.toneOrDefault(themeRepository.hornTone()));
         }
 
-        root.setTop(buildSetupPane());
+        setupPane = new SetupPane(teamRepository, displayWindow, this::createGame, this::openConfig);
+        root.setTop(setupPane.node());
         root.setCenter(buildPlaceholder());
-        gameState.addListener((obs, oldState, state) -> {
-            root.setCenter(buildGamePane(state));
-            if (state != null) {
-                // Start des 7-m-Werfens: Spielsteuerung mit eigener Werfen-Zeile neu aufbauen
-                state.shootoutProperty().addListener(
-                        (o, oldShootout, shootout) -> root.setCenter(buildGamePane(state)));
-            }
-        });
+        gameState.addListener((obs, oldState, state) ->
+                root.setCenter(state == null ? buildPlaceholder() : new GamePane(state, horn, dialogs).node()));
 
         Scene scene = new Scene(root, width, height);
         scene.getStylesheets().add(
@@ -179,37 +124,9 @@ public class ControlWindow {
                 && !state.isOver();
     }
 
-    /**
-     * Statuszeile am unteren Rand für Probleme, die den Spielbetrieb nicht stoppen
-     * (z. B. Speichern fehlgeschlagen): blendet sich nach einigen Sekunden aus.
-     */
-    private void buildStatusLine() {
-        statusLine.getStyleClass().add("status-line");
-        statusLine.setMaxWidth(Double.MAX_VALUE);
-        statusLine.setWrapText(true);
-        statusLine.setVisible(false);
-        statusLine.setManaged(false);
-        statusTimeout.setOnFinished(e -> {
-            statusLine.setVisible(false);
-            statusLine.setManaged(false);
-        });
-        root.setBottom(statusLine);
-        // Meldungen können aus jedem Thread kommen
-        reporter.addListener(message -> {
-            if (Platform.isFxApplicationThread()) {
-                showProblem(message);
-            } else {
-                Platform.runLater(() -> showProblem(message));
-            }
-        });
-    }
-
     /** Zeigt eine Problemmeldung in der Statuszeile; eine neue Meldung ersetzt die alte. */
     void showProblem(String message) {
-        statusLine.setText("⚠ " + message + " – Details in ~/.spielstandsanzeige/spielstandsanzeige.log");
-        statusLine.setVisible(true);
-        statusLine.setManaged(true);
-        statusTimeout.playFromStart();
+        statusBar.showProblem(message);
     }
 
     public GameState gameState() {
@@ -246,6 +163,14 @@ public class ControlWindow {
         Platform.runLater(this::offerResume);
     }
 
+    private void openConfig() {
+        if (configWindow == null) {
+            configWindow = new ConfigWindow(stage, displayWindow, themeRepository,
+                    teamRepository, horn, this::applyTheme, setupPane::applyDefaultHomeTeam, dialogs);
+        }
+        configWindow.show();
+    }
+
     /** Bietet ein nach Absturz oder Neustart gesichertes, nicht beendetes Spiel zum Fortsetzen an. */
     void offerResume() {
         GameState restored = snapshotStore.load().map(snapshot -> {
@@ -267,144 +192,12 @@ public class ControlWindow {
         if (dialogs.askResume("Laufendes Spiel fortsetzen?", "Es gibt ein nicht beendetes Spiel.",
                 config.homeName() + " " + restored.scoreProperty(TeamSide.HOME).get() + " : "
                         + restored.scoreProperty(TeamSide.GUEST).get() + " " + config.guestName()
-                        + "\n" + phaseText(restored) + ", " + clockText
+                        + "\n" + PhaseTexts.phase(restored) + ", " + clockText
                         + "\n\nDie Uhr steht und wird mit „Fortsetzen“ weitergestartet.")) {
             startGame(restored);
         } else {
             snapshotStore.delete();
         }
-    }
-
-    // --- Setup ---
-
-    private Node buildSetupPane() {
-        modeBox.getItems().setAll(GameMode.values());
-        modeBox.setValue(GameMode.TWO_HALVES);
-        directionBox.getItems().setAll(ClockDirection.values());
-        directionBox.setValue(ClockDirection.UP);
-        overtimeFormatBox.getItems().setAll(OvertimeFormat.values());
-        overtimeFormatBox.setValue(OvertimeFormat.TWO_HALVES);
-        for (Spinner<Integer> spinner : List.of(minutesSpinner, overtimeMinutesSpinner)) {
-            spinner.setEditable(true);
-            spinner.focusedProperty().addListener((obs, was, is) -> {
-                if (!is) {
-                    spinner.increment(0); // eingetippten Wert übernehmen
-                }
-            });
-        }
-
-        // Heim und Gast als gleich breite Karten nebeneinander — wie die Spielhälften
-        HBox teamCards = new HBox(12, buildTeamCard(TeamSide.HOME), buildTeamCard(TeamSide.GUEST));
-
-        Button createButton = new Button("✚ Spiel anlegen");
-        createButton.getStyleClass().add("create-button");
-        createButton.setDefaultButton(true);
-        createButton.setOnAction(e -> createGame());
-
-        minutesSpinner.setPrefWidth(80);
-        HBox paramsRow = new HBox(10,
-                new Label("Modus:"), modeBox,
-                new Label("Periodendauer (min):"), minutesSpinner,
-                new Label("Uhr:"), directionBox);
-        paramsRow.setAlignment(Pos.CENTER_LEFT);
-
-        // Verlängerungs-Voreinstellung; genutzt wird sie nur, wenn das Kampfgericht
-        // nach Spielende tatsächlich „Verlängerung starten“ drückt
-        overtimeMinutesSpinner.setPrefWidth(70);
-        Region overtimeSpacer = new Region();
-        HBox.setHgrow(overtimeSpacer, Priority.ALWAYS);
-        HBox overtimeRow = new HBox(10,
-                new Label("Verlängerung (falls nötig):"), overtimeFormatBox,
-                new Label("à"), overtimeMinutesSpinner, new Label("min"),
-                overtimeSpacer, createButton);
-        overtimeRow.setAlignment(Pos.CENTER_LEFT);
-
-        screenBox.setItems(Screen.getScreens());
-        screenBox.setButtonCell(screenCell());
-        screenBox.setCellFactory(list -> screenCell());
-        screenBox.getSelectionModel().select(Screen.getScreens().size() > 1 ? 1 : 0);
-
-        Button openDisplayButton = new Button("🖥 Anzeige öffnen");
-        openDisplayButton.setOnAction(e -> {
-            Screen screen = screenBox.getValue() != null ? screenBox.getValue() : Screen.getPrimary();
-            displayWindow.showOn(screen, screen != Screen.getPrimary());
-        });
-        Button fullScreenButton = new Button("⛶ Vollbild umschalten");
-        fullScreenButton.setOnAction(e -> displayWindow.toggleFullScreen());
-
-        Button configButton = new Button("🎨 Konfiguration…");
-        configButton.setOnAction(e -> {
-            if (configWindow == null) {
-                configWindow = new ConfigWindow(stage, displayWindow, themeRepository,
-                        teamRepository, horn, this::applyTheme, this::applyDefaultHomeTeam, dialogs);
-            }
-            configWindow.show();
-        });
-
-        HBox displayRow = new HBox(10, new Label("Publikumsanzeige:"), screenBox, openDisplayButton,
-                fullScreenButton, configButton);
-        displayRow.setAlignment(Pos.CENTER_LEFT);
-
-        VBox content = new VBox(12, teamCards, paramsRow, overtimeRow, new Separator(), displayRow);
-        content.setPadding(new Insets(10));
-
-        TitledPane pane = new TitledPane("Spiel-Einstellungen", content);
-        pane.setCollapsible(false);
-        return pane;
-    }
-
-    /** Karte einer Mannschaft im Setup: Titel und Teamnamen-Auswahl. */
-    private Node buildTeamCard(TeamSide side) {
-        Label title = new Label(side.label());
-        title.getStyleClass().add("team-card-title");
-
-        TeamNamePicker picker = new TeamNamePicker(knownTeams, side.label());
-        if (side == TeamSide.HOME) {
-            picker.setText(defaultHomeTeam);
-        }
-        teamPickers.put(side, picker);
-
-        VBox card = new VBox(8, title, picker.node());
-        card.getStyleClass().add("team-card");
-        card.setPadding(new Insets(10, 12, 12, 12));
-        HBox.setHgrow(card, Priority.ALWAYS);
-        return card;
-    }
-
-    /**
-     * Übernimmt ein in der Konfiguration geändertes Standard-Heimteam sofort ins
-     * Heim-Feld — aber nur, solange dort nichts anderes eingetragen wurde.
-     */
-    private void applyDefaultHomeTeam(String name) {
-        TeamNamePicker picker = teamPickers.get(TeamSide.HOME);
-        String current = picker.text() == null ? "" : picker.text().strip();
-        if (current.isEmpty() || current.equals(defaultHomeTeam)) {
-            picker.setText(name);
-        }
-        defaultHomeTeam = name;
-    }
-
-    /** Editierbares Dropdown mit Textfilter über alle gespeicherten Teams. */
-    private String teamName(TeamSide side) {
-        TeamNamePicker picker = teamPickers.get(side);
-        return picker == null ? side.label() : orDefault(picker.text(), side.label());
-    }
-
-    private static ListCell<Screen> screenCell() {
-        return new ListCell<>() {
-            @Override
-            protected void updateItem(Screen screen, boolean empty) {
-                super.updateItem(screen, empty);
-                if (empty || screen == null) {
-                    setText(null);
-                } else {
-                    Rectangle2D b = screen.getBounds();
-                    int index = Screen.getScreens().indexOf(screen) + 1;
-                    setText("Bildschirm " + index + " (" + (int) b.getWidth() + "×" + (int) b.getHeight() + ")"
-                            + (screen == Screen.getPrimary() ? " – Hauptbildschirm" : ""));
-                }
-            }
-        };
     }
 
     void createGame() {
@@ -413,20 +206,7 @@ public class ControlWindow {
                 && !dialogs.confirm("Das aktuelle Spiel wird verworfen. Neues Spiel anlegen?")) {
             return;
         }
-        String homeName = teamName(TeamSide.HOME);
-        String guestName = teamName(TeamSide.GUEST);
-        rememberTeam(homeName, TeamSide.HOME);
-        rememberTeam(guestName, TeamSide.GUEST);
-        knownTeams.setAll(teamRepository.teamNames());
-        GameConfig config = new GameConfig(
-                homeName,
-                guestName,
-                modeBox.getValue(),
-                Duration.ofMinutes(minutesSpinner.getValue()),
-                directionBox.getValue(),
-                overtimeFormatBox.getValue(),
-                Duration.ofMinutes(overtimeMinutesSpinner.getValue()),
-                SportProfile.HANDBALL);
+        GameConfig config = setupPane.readConfig();
         snapshotStore.delete(); // die Sicherung des verworfenen Spiels
         startGame(new GameState(config));
     }
@@ -444,615 +224,11 @@ public class ControlWindow {
         autosave.saveNow(); // wiederhergestelltes Spiel sofort wieder sichern
     }
 
-    private static String orDefault(String text, String fallback) {
-        return text == null || text.isBlank() ? fallback : text.strip();
-    }
-
-    /** Speichert das Team in der Datenbank; Standardnamen (Heim/Gast) werden nicht gemerkt. */
-    private void rememberTeam(String name, TeamSide side) {
-        if (!name.equals(side.label())) {
-            teamRepository.saveTeam(name);
-        }
-    }
-
-    // --- Spielsteuerung ---
-
     private Node buildPlaceholder() {
         Label label = new Label("Noch kein Spiel angelegt – oben konfigurieren und „Spiel anlegen“ drücken.");
         label.getStyleClass().add("game-placeholder");
         BorderPane pane = new BorderPane(label);
         pane.getStyleClass().add("game-pane");
         return pane;
-    }
-
-    /**
-     * Spielsteuerung im Raster der Publikumsanzeige (Strafen außen | Uhr mittig |
-     * Tore in den Spielhälften | Teamnamen darunter), ergänzt um die Bedienelemente:
-     * Hupe oben links, Spielabbruch oben rechts, Uhr-Steuerung unter der Uhr,
-     * Tor-/Strafen-/Timeout-Bedienung in der jeweiligen Spielhälfte.
-     */
-    private Node buildGamePane(GameState state) {
-        if (state == null) {
-            return buildPlaceholder();
-        }
-
-        // die 100%-Zeilen lassen die Zellen ihre komplette Raster-Zone füllen —
-        // die Kinder verteilen sich per eigener Ausrichtung darin
-        GridPane topRow = new GridPane();
-        // wie beim äußeren Raster: überbreite Inhalte werden eingepasst statt
-        // die Mindestbreite der Zeile (und damit des Fensters) aufzuweiten
-        topRow.setMinWidth(0);
-        topRow.getColumnConstraints().addAll(
-                percentColumn(25), percentColumn(50), percentColumn(25));
-        topRow.getRowConstraints().add(percentRow(100));
-        topRow.add(buildCornerColumn(state, TeamSide.HOME), 0, 0);
-        topRow.add(buildClockBox(state), 1, 0);
-        topRow.add(buildCornerColumn(state, TeamSide.GUEST), 2, 0);
-
-        GridPane scoreRow = new GridPane();
-        scoreRow.setMinWidth(0);
-        scoreRow.getColumnConstraints().addAll(percentColumn(50), percentColumn(50));
-        scoreRow.getRowConstraints().add(percentRow(100));
-        scoreRow.add(buildScoreCell(state, TeamSide.HOME), 0, 0);
-        scoreRow.add(buildScoreCell(state, TeamSide.GUEST), 1, 0);
-
-        GridPane nameRow = new GridPane();
-        nameRow.setMinWidth(0);
-        nameRow.getColumnConstraints().addAll(percentColumn(50), percentColumn(50));
-        nameRow.getRowConstraints().add(percentRow(100));
-        nameRow.add(buildTeamControls(state, TeamSide.HOME), 0, 0);
-        nameRow.add(buildTeamControls(state, TeamSide.GUEST), 1, 0);
-
-        // die drei Zeilen füllen den Content-Bereich immer vollständig, im
-        // Standard-Verhältnis 45:30:25 — wie das Prozent-Raster der Anzeige
-        GridPane pane = new GridPane();
-        pane.getStyleClass().add("game-pane");
-        pane.setPadding(new Insets(15));
-        pane.setMinHeight(0);
-        // Mindestbreiten überbreiter Zeilen (z. B. „1. Halbzeit der Verlängerung
-        // starten“) nicht nach außen tragen: eingepasst wird per fitToCellWidth
-        pane.setMinWidth(0);
-        pane.getColumnConstraints().add(percentColumn(100));
-        Shootout shootout = state.shootoutProperty().get();
-        if (shootout == null) {
-            pane.getRowConstraints().addAll(percentRow(45), percentRow(30), percentRow(25));
-            pane.add(topRow, 0, 0);
-            pane.add(scoreRow, 0, 1);
-            pane.add(nameRow, 0, 2);
-        } else {
-            // beim 7-m-Werfen bekommt die Wurf-Steuerung eine eigene Zeile in voller Breite
-            pane.getRowConstraints().addAll(
-                    percentRow(32), percentRow(25), percentRow(26), percentRow(17));
-            pane.add(topRow, 0, 0);
-            pane.add(buildShootoutPane(state, shootout), 0, 1);
-            pane.add(scoreRow, 0, 2);
-            pane.add(nameRow, 0, 3);
-        }
-        // Basis-Schriftgröße an die Höhe des Spielbereichs selbst gebunden
-        // (nicht ans Fenster: der feste Setup-Bereich oben ließe die Zonen sonst
-        // schneller wachsen als die Schrift). 13 px bei Standardgröße 940×700
-        // (Spielbereich ≈ 485 px hoch); alle .game-Größen sind in em, Buttons
-        // und Labels wachsen dadurch im gleichen Verhältnis wie ihre Zonen —
-        // bewusst ohne eigene Regler je Element wie auf der Publikumsanzeige.
-        // Eine Breiten-Deckelung gibt es nicht: zu breite Zeilen passen sich
-        // per fitToCellWidth in ihre Zellen ein.
-        pane.styleProperty().bind(Bindings.createStringBinding(
-                () -> String.format(Locale.US, "-fx-font-size: %.1fpx; ",
-                        Math.max(10, pane.getHeight() * 0.0268)),
-                pane.heightProperty()));
-        return pane;
-    }
-
-    private static RowConstraints percentRow(double percent) {
-        RowConstraints row = new RowConstraints();
-        row.setPercentHeight(percent);
-        row.setVgrow(Priority.ALWAYS);
-        return row;
-    }
-
-    /**
-     * Passt den Inhalt einer Raster-Zelle per Skalierung ein, sobald er breiter
-     * ist als der ihm zugeteilte Platz — analog zur Einpassung auf der
-     * Publikumsanzeige: nichts wird mit „…“ gekürzt, nichts ragt in
-     * Nachbarzellen. Damit das funktioniert, müssen die Kinder ihre bevorzugte
-     * Breite als Mindestbreite behalten (USE_PREF_SIZE) statt gestaucht zu
-     * werden. Der Pivot bestimmt, welche Kante beim Einpassen stehen bleibt.
-     */
-    private static <T extends Region> T fitToCellWidth(T content, HPos anchor) {
-        Scale fit = new Scale(1, 1);
-        if (anchor == HPos.RIGHT) {
-            fit.pivotXProperty().bind(content.widthProperty());
-        }
-        // LEFT/CENTER: Pivot 0 — überbreiter Inhalt beginnt links und füllt
-        // eingepasst genau die Zellbreite
-        fit.pivotYProperty().bind(content.heightProperty().divide(2));
-        content.getTransforms().add(fit);
-        InvalidationListener refit = obs -> {
-            double natural = content.prefWidth(-1);
-            double available = content.getWidth();
-            double factor = natural > available && available > 0 ? available / natural : 1;
-            fit.setX(factor);
-            fit.setY(factor);
-        };
-        content.widthProperty().addListener(refit);
-        for (Node child : content.getChildrenUnmodifiable()) {
-            child.layoutBoundsProperty().addListener(refit);
-        }
-        // dynamisch neu aufgebaute Kinder (Strafen, Timeout-Zeile) mitverfolgen
-        content.getChildrenUnmodifiable().addListener((ListChangeListener<Node>) change -> {
-            while (change.next()) {
-                for (Node added : change.getAddedSubList()) {
-                    added.layoutBoundsProperty().addListener(refit);
-                }
-            }
-            refit.invalidated(null);
-        });
-        return content;
-    }
-
-    private static ColumnConstraints percentColumn(double percent) {
-        ColumnConstraints column = new ColumnConstraints();
-        column.setPercentWidth(percent);
-        column.setHgrow(Priority.ALWAYS);
-        return column;
-    }
-
-    /** Uhr + Status mittig wie auf der Anzeige, darunter die Uhr-Steuerung. */
-    private Node buildClockBox(GameState state) {
-        GameClock clock = state.clock();
-
-        Label clockLabel = new Label();
-        clockLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> TimeFormatter.formatClock(clock.elapsedMillisProperty().get(),
-                        clock.currentPeriodEndMillis(), state.config().direction()),
-                clock.elapsedMillisProperty(), clock.periodProperty()));
-        clockLabel.getStyleClass().add("game-clock");
-        clockLabel.setMinWidth(Region.USE_PREF_SIZE);
-        HBox clockLine = new HBox(clockLabel);
-        clockLine.setAlignment(Pos.CENTER);
-        fitToCellWidth(clockLine, HPos.LEFT);
-
-        // per Listener statt Binding aktualisiert, weil der Text auch vom Sieger
-        // eines erst später gestarteten 7-m-Werfens abhängt
-        Label phaseLabel = new Label();
-        phaseLabel.getStyleClass().add("game-phase");
-        Runnable updatePhase = () -> phaseLabel.setText(phaseText(state));
-        clock.phaseProperty().addListener(obs -> updatePhase.run());
-        clock.periodProperty().addListener(obs -> updatePhase.run());
-        state.shootoutProperty().addListener((obs, oldShootout, shootout) -> {
-            if (shootout != null) {
-                shootout.winnerProperty().addListener(o -> updatePhase.run());
-            }
-            updatePhase.run();
-        });
-        updatePhase.run();
-
-        Button startPauseButton = new Button();
-        startPauseButton.setMinWidth(Region.USE_PREF_SIZE);
-        startPauseButton.getStyleClass().add("big-button");
-        startPauseButton.textProperty().bind(Bindings.createStringBinding(
-                () -> switch (clock.phaseProperty().get()) {
-                    case RUNNING -> "⏸ Pause";
-                    case PAUSED -> "▶ Fortsetzen";
-                    default -> "▶ Start";
-                }, clock.phaseProperty()));
-        startPauseButton.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> clock.phaseProperty().get() == GameClock.Phase.HALF_TIME
-                        || clock.phaseProperty().get() == GameClock.Phase.FINISHED,
-                clock.phaseProperty()));
-        startPauseButton.setOnAction(e -> {
-            if (clock.runningProperty().get()) {
-                clock.pause();
-            } else {
-                clock.start();
-            }
-        });
-
-        // ein Knopf für den jeweils nächsten Abschnitt: in der Pause die nächste
-        // Halbzeit bzw. das nächste Drittel, nach regulärem Spielende die Verlängerung
-        Button nextPeriodButton = new Button();
-        nextPeriodButton.textProperty().bind(Bindings.createStringBinding(
-                () -> nextSegmentText(state),
-                clock.phaseProperty(), clock.periodProperty()));
-        nextPeriodButton.getStyleClass().add("big-button");
-        nextPeriodButton.disableProperty().bind(state.canStartNextSegmentProperty().not());
-        nextPeriodButton.setOnAction(e -> state.startNextSegment());
-
-        Button setTimeButton = new Button("🕑 Zeit stellen…");
-        setTimeButton.getStyleClass().add("big-button");
-        setTimeButton.disableProperty().bind(
-                clock.phaseProperty().isEqualTo(GameClock.Phase.FINISHED));
-        setTimeButton.setOnAction(e -> correctClock(state));
-
-        // 7-m-Werfen: wie die Verlängerung erst nach regulärem Spielende möglich
-        Button shootoutButton = new Button("🥅 7-m-Werfen…");
-        shootoutButton.getStyleClass().add("big-button");
-        shootoutButton.disableProperty().bind(state.canStartShootoutProperty().not());
-        shootoutButton.setOnAction(e -> startShootout(state));
-
-        // Unentschieden nach regulärem Ende: das Kampfgericht kann das Spiel auch ohne
-        // Verlängerung und ohne 7-m-Werfen beenden; der Knopf erscheint nur in diesem Zustand
-        Button endGameButton = new Button("🏁 Beenden");
-        endGameButton.setTooltip(new Tooltip("Spiel bei Unentschieden beenden"));
-        endGameButton.getStyleClass().add("big-button");
-        endGameButton.setMinWidth(Region.USE_PREF_SIZE);
-        endGameButton.visibleProperty().bind(state.canEndGameProperty());
-        endGameButton.managedProperty().bind(endGameButton.visibleProperty());
-        // „Zeit stellen…“ ist nach Spielende ohnehin gesperrt: Platz für „Beenden“ in schmalen Fenstern
-        setTimeButton.visibleProperty().bind(endGameButton.visibleProperty().not());
-        setTimeButton.managedProperty().bind(setTimeButton.visibleProperty());
-        endGameButton.setOnAction(e -> {
-            if (dialogs.confirm("Unentschieden stehen lassen und Spiel beenden? Danach sind weder "
-                    + "Verlängerung noch 7-m-Werfen möglich.")) {
-                state.endGame();
-            }
-        });
-
-        nextPeriodButton.setMinWidth(Region.USE_PREF_SIZE);
-        setTimeButton.setMinWidth(Region.USE_PREF_SIZE);
-        shootoutButton.setMinWidth(Region.USE_PREF_SIZE);
-        HBox clockButtons = new HBox(10, startPauseButton, nextPeriodButton, shootoutButton,
-                endGameButton, setTimeButton);
-        clockButtons.setAlignment(Pos.CENTER);
-        fitToCellWidth(clockButtons, HPos.LEFT);
-
-        VBox timeoutBox = new VBox(4);
-        timeoutBox.setAlignment(Pos.CENTER);
-        fitToCellWidth(timeoutBox, HPos.LEFT);
-        state.activeTimeoutProperty().addListener((obs, oldTimeout, timeout) ->
-                rebuildTimeoutRow(state, timeoutBox));
-        rebuildTimeoutRow(state, timeoutBox);
-
-        VBox clockBox = new VBox(6, clockLine, phaseLabel, clockButtons, timeoutBox);
-        // mittig in der Raster-Zeile (wie die Uhr auf der Anzeige), damit bei
-        // großen Fenstern kein Loch zwischen Uhr-Gruppe und Tor-Zeile entsteht
-        clockBox.setAlignment(Pos.CENTER);
-        return clockBox;
-    }
-
-    /**
-     * Spielzeit manuell stellen: Eingabe im Anzeigeformat der Uhr (vorwärts =
-     * gespielte Zeit, rückwärts = Restzeit der Periode), begrenzt auf die
-     * aktuelle Periode. Aus der Halbzeitpause heraus öffnet die Korrektur die
-     * Periode wieder (weiter mit „Fortsetzen“).
-     */
-    private void correctClock(GameState state) {
-        GameClock clock = state.clock();
-        boolean countUp = state.config().direction() == ClockDirection.UP;
-        int period = clock.periodProperty().get();
-        String segment = state.config().isOvertimePeriod(period)
-                ? overtimeLabel(state.config(), period)
-                : state.config().mode().periodName() + " " + period;
-        boolean showSegment = state.config().mode().periodCount() > 1
-                || state.config().isOvertimePeriod(period);
-        String header = countUp
-                ? "Gespielte Zeit (MM:SS)" + (showSegment
-                        ? " — " + segment + " läuft ab "
-                                + TimeFormatter.formatClock(clock.currentPeriodStartMillis(), 0,
-                                        ClockDirection.UP)
-                        : "")
-                : "Restzeit der aktuellen Periode (MM:SS)";
-        dialogs.askText("Spielzeit stellen", header, "Zeit:", TimeFormatter.formatClock(
-                clock.elapsedMillisProperty().get(), clock.currentPeriodEndMillis(),
-                state.config().direction())).ifPresent(text -> {
-            try {
-                long shown = TimeFormatter.parseClockInput(text);
-                clock.setElapsed(countUp ? shown : clock.currentPeriodEndMillis() - shown);
-            } catch (IllegalArgumentException ex) {
-                dialogs.warn(ex.getMessage());
-            }
-        });
-    }
-
-    /** Startteam abfragen (Münzwurf) und das 7-m-Werfen beginnen. */
-    private void startShootout(GameState state) {
-        dialogs.choose("7-m-Werfen", "Welches Team wirft zuerst?", List.of(
-                state.config().teamName(TeamSide.HOME) + " beginnt",
-                state.config().teamName(TeamSide.GUEST) + " beginnt")).ifPresent(choice ->
-                state.startShootout(choice == 0 ? TeamSide.HOME : TeamSide.GUEST));
-    }
-
-    /** Sichtbare Runden der Wurf-Tabelle; ältere Runden verlassen die Tabelle per „…“. */
-    private static final int SHOOTOUT_VISIBLE_ROUNDS = 15;
-
-    /**
-     * Eigene Zeile für das laufende 7-m-Werfen in voller Breite: Status, die in
-     * diesem Moment wichtigsten Knöpfe Tor/Kein Tor (gleich groß und deutlich
-     * größer als alles andere) samt Rücknahme von Fehleingaben und die dezent
-     * durchnummerierte Wurf-Tabelle beider Teams. Ein Tor zählt auf den
-     * Spielstand; am Ende steht der Sieger in der Statuszeile.
-     */
-    private Node buildShootoutPane(GameState state, Shootout shootout) {
-        Label statusLabel = new Label();
-        statusLabel.getStyleClass().add("game-phase");
-        statusLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> {
-                    TeamSide winner = shootout.winnerProperty().get();
-                    if (winner != null) {
-                        return "🏆 Sieger: " + state.config().teamName(winner);
-                    }
-                    return (shootout.suddenDeath() ? "Sudden Death — " : "7-m-Werfen — ")
-                            + state.config().teamName(shootout.nextThrowerProperty().get())
-                            + " wirft";
-                },
-                shootout.winnerProperty(), shootout.nextThrowerProperty(), shootout.attempts()));
-
-        Button goalButton = new Button("⚽ Tor");
-        goalButton.getStyleClass().add("shootout-goal-button");
-        goalButton.setOnAction(e -> state.recordShootoutAttempt(true));
-        Button missButton = new Button("❌ Kein Tor");
-        missButton.getStyleClass().add("shootout-miss-button");
-        missButton.setOnAction(e -> state.recordShootoutAttempt(false));
-        // gleich große Knöpfe: „Kein Tor“ ist der breitere und behält seine natürliche
-        // Breite, „Tor“ übernimmt sie — nichts wird mit „…“ gekürzt
-        missButton.setMinWidth(Region.USE_PREF_SIZE);
-        goalButton.prefWidthProperty().bind(missButton.widthProperty());
-        for (Button button : List.of(goalButton, missButton)) {
-            button.disableProperty().bind(shootout.winnerProperty().isNotNull());
-        }
-        HBox bigButtons = new HBox(10, goalButton, missButton);
-        bigButtons.setAlignment(Pos.CENTER);
-
-        Button undoButton = new Button("↩ Wurf zurücknehmen");
-        undoButton.setMinWidth(Region.USE_PREF_SIZE);
-        undoButton.disableProperty().bind(Bindings.isEmpty(shootout.attempts()));
-        undoButton.setOnAction(e -> state.undoShootoutAttempt());
-
-        HBox buttonRow = new HBox(12, bigButtons, undoButton);
-        buttonRow.setAlignment(Pos.CENTER);
-
-        GridPane table = new GridPane();
-        table.setHgap(10);
-        table.setVgap(2);
-        shootout.attempts().addListener((ListChangeListener<Shootout.Attempt>) change ->
-                rebuildAttemptsTable(table, shootout));
-        rebuildAttemptsTable(table, shootout);
-        HBox tableLine = new HBox(table);
-        tableLine.setAlignment(Pos.CENTER);
-        fitToCellWidth(tableLine, HPos.CENTER);
-
-        VBox pane = new VBox(8, statusLabel, buttonRow, tableLine);
-        pane.setAlignment(Pos.CENTER);
-        return pane;
-    }
-
-    /**
-     * Wurf-Tabelle: oben dezente Rundennummern, darunter je Team die Trefferfolge
-     * (● Tor, ○ Fehlwurf). Passen nicht mehr alle Runden hinein, verlassen die
-     * ältesten die Tabelle („…“) — die jüngsten Würfe bleiben immer sichtbar.
-     */
-    private static void rebuildAttemptsTable(GridPane table, Shootout shootout) {
-        table.getChildren().clear();
-        List<Shootout.Attempt> home = shootout.attemptsFor(TeamSide.HOME);
-        List<Shootout.Attempt> guest = shootout.attemptsFor(TeamSide.GUEST);
-        int rounds = Math.max(home.size(), guest.size());
-        int firstRound = Math.max(0, rounds - SHOOTOUT_VISIBLE_ROUNDS);
-        addTableCell(table, 0, 1, TeamSide.HOME.label(), "game-shootout-team");
-        addTableCell(table, 0, 2, TeamSide.GUEST.label(), "game-shootout-team");
-        int column = 1;
-        if (firstRound > 0) {
-            addTableCell(table, column, 1, "…", "game-shootout-symbol");
-            addTableCell(table, column, 2, "…", "game-shootout-symbol");
-            column++;
-        }
-        for (int round = firstRound; round < rounds; round++, column++) {
-            addTableCell(table, column, 0, String.valueOf(round + 1), "game-shootout-number");
-            if (round < home.size()) {
-                addTableCell(table, column, 1,
-                        home.get(round).goal() ? "●" : "○", "game-shootout-symbol");
-            }
-            if (round < guest.size()) {
-                addTableCell(table, column, 2,
-                        guest.get(round).goal() ? "●" : "○", "game-shootout-symbol");
-            }
-        }
-    }
-
-    private static void addTableCell(GridPane table, int column, int row,
-            String text, String styleClass) {
-        Label label = new Label(text);
-        label.getStyleClass().add(styleClass);
-        table.add(label, column, row);
-        GridPane.setHalignment(label, column == 0 ? HPos.LEFT : HPos.CENTER);
-    }
-
-    /**
-     * Äußere Spalte der oberen Zeile: links die Hupe, rechts der Spielabbruch —
-     * darunter jeweils die laufenden Zeitstrafen des Teams wie auf der Anzeige.
-     */
-    private Node buildCornerColumn(GameState state, TeamSide side) {
-        Button cornerButton;
-        if (side == TeamSide.HOME) {
-            cornerButton = new Button("📢 Hupe");
-            cornerButton.getStyleClass().add("big-button");
-            cornerButton.setOnAction(e -> horn.play());
-        } else {
-            cornerButton = new Button("⏹ Spiel abbrechen");
-            cornerButton.getStyleClass().add("big-button");
-            cornerButton.disableProperty().bind(
-                    state.clock().phaseProperty().isEqualTo(GameClock.Phase.FINISHED));
-            cornerButton.setOnAction(e -> {
-                if (dialogs.confirm("Das Spiel wirklich abbrechen? Die Uhr stoppt endgültig.")) {
-                    state.abortGame();
-                }
-            });
-        }
-
-        VBox penaltiesBox = new VBox(4);
-        penaltiesBox.setAlignment(side == TeamSide.HOME ? Pos.TOP_LEFT : Pos.TOP_RIGHT);
-        state.sortedPenalties(side).addListener((ListChangeListener<PenaltyTimer>) change ->
-                rebuildPenaltyRows(state, side, penaltiesBox));
-        rebuildPenaltyRows(state, side, penaltiesBox);
-
-        cornerButton.setMinWidth(Region.USE_PREF_SIZE);
-        VBox column = new VBox(10, cornerButton, penaltiesBox);
-        column.setAlignment(side == TeamSide.HOME ? Pos.TOP_LEFT : Pos.TOP_RIGHT);
-        // Mindestbreite der Knöpfe darf die Zelle nicht aufweiten (sonst ragt „→ 4 Min“ bei
-        // schmalem Fenster über den Rand): zu breiter Inhalt wird stattdessen eingepasst
-        column.setMinWidth(0);
-        fitToCellWidth(column, side == TeamSide.HOME ? HPos.LEFT : HPos.RIGHT);
-        return column;
-    }
-
-    /** Toranzeige der Spielhälfte: großer Spielstand, darunter große Tor-Buttons. */
-    private Node buildScoreCell(GameState state, TeamSide side) {
-        Label scoreLabel = new Label();
-        scoreLabel.textProperty().bind(state.scoreProperty(side).asString());
-        scoreLabel.getStyleClass().add("game-score");
-
-        Button plusButton = new Button("➕ Tor");
-        plusButton.getStyleClass().add("goal-button");
-        plusButton.setMinWidth(Region.USE_PREF_SIZE);
-        plusButton.setOnAction(e -> state.addGoal(side));
-        Button minusButton = new Button("➖ Tor");
-        minusButton.getStyleClass().add("goal-button");
-        minusButton.setMinWidth(Region.USE_PREF_SIZE);
-        minusButton.setOnAction(e -> state.removeGoal(side));
-        HBox goalButtons = new HBox(10, plusButton, minusButton);
-        goalButtons.setAlignment(Pos.CENTER);
-
-        VBox cell = new VBox(8, scoreLabel, goalButtons);
-        cell.setAlignment(Pos.CENTER);
-        return fitToCellWidth(cell, HPos.CENTER);
-    }
-
-    /** Untere Zeile je Spielhälfte: Teamname, Strafen-Eingabe und Timeout mit Counter. */
-    private Node buildTeamControls(GameState state, TeamSide side) {
-        Label nameLabel = new Label(state.config().teamName(side) + " (" + side.label() + ")");
-        nameLabel.getStyleClass().add("game-team-name");
-        nameLabel.setMinWidth(Region.USE_PREF_SIZE);
-
-        TextField numberField = new TextField();
-        numberField.setPromptText("Nr.");
-        numberField.setPrefColumnCount(3);
-        Button penaltyButton = new Button("⏱ 2 Minuten");
-        penaltyButton.setOnAction(e -> {
-            state.addPenalty(side, numberField.getText());
-            numberField.clear();
-        });
-        HBox penaltyEntry = new HBox(8, numberField, penaltyButton);
-        penaltyEntry.setAlignment(Pos.CENTER);
-
-        Button timeoutButton = new Button("🟩 Team-Timeout");
-        timeoutButton.disableProperty().bind(state.canStartTeamTimeoutProperty().not());
-        timeoutButton.setOnAction(e -> state.startTeamTimeout(side));
-
-        Label timeoutsLabel = new Label();
-        timeoutsLabel.getStyleClass().add("game-timeout-dots");
-        timeoutsLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> TimeFormatter.formatTimeoutDots(
-                        state.timeoutsUsedProperty(side).get(),
-                        state.config().profile().teamTimeoutsPerGame()),
-                state.timeoutsUsedProperty(side)));
-
-        HBox timeoutRow = new HBox(8, timeoutButton, timeoutsLabel);
-        timeoutRow.setAlignment(Pos.CENTER);
-
-        VBox pane = new VBox(8, nameLabel, penaltyEntry, timeoutRow);
-        pane.setAlignment(Pos.TOP_CENTER);
-        pane.setPadding(new Insets(10));
-        return fitToCellWidth(pane, HPos.CENTER);
-    }
-
-    private void rebuildPenaltyRows(GameState state, TeamSide side, VBox penaltiesBox) {
-        // gleiche Reihenfolge wie auf der Anzeige: älteste Strafe (kürzeste Restzeit) oben
-        penaltiesBox.getChildren().setAll(state.sortedPenalties(side).stream()
-                .map(timer -> penaltyEntry(state, timer))
-                .toList());
-    }
-
-    /** Strafen-Zeile plus Knopf, der die Strafe auf die doppelte Dauer verlängert. */
-    private Node penaltyEntry(GameState state, PenaltyTimer timer) {
-        Button extendButton = new Button("→ 4 Min");
-        extendButton.setTooltip(new Tooltip("Zeitstrafe auf 4 Minuten verlängern"));
-        extendButton.disableProperty().bind(Bindings.createBooleanBinding(
-                timer::isExtended, timer.remainingMillisProperty()));
-        extendButton.setOnAction(e -> state.extendPenalty(timer));
-        extendButton.setMinWidth(Region.USE_PREF_SIZE);
-        HBox box = new HBox(4, penaltyRow(state, timer), extendButton);
-        box.setAlignment(Pos.CENTER_LEFT);
-        return box;
-    }
-
-    /** Eine Zeitstrafen-Zeile ist als Ganzes klickbar: ein Klick bricht die Strafe ab. */
-    private Node penaltyRow(GameState state, PenaltyTimer timer) {
-        // kompakt wie auf der Anzeige („Nr. + Zeit“), damit nichts abgeschnitten wird
-        String prefix = timer.playerNumber() == null
-                ? "⏱ "
-                : "⏱ Nr. " + timer.playerNumber() + "  ";
-        Button row = new Button();
-        row.textProperty().bind(Bindings.createStringBinding(
-                () -> prefix + TimeFormatter.formatRemaining(timer.remainingMillisProperty().get()) + "  ✕",
-                timer.remainingMillisProperty()));
-        row.getStyleClass().add("game-penalty-row");
-        row.setMinWidth(Region.USE_PREF_SIZE);
-        row.setTooltip(new Tooltip("Klicken, um die Zeitstrafe abzubrechen"));
-        row.setOnAction(e -> state.removePenalty(timer));
-        return row;
-    }
-
-    /** Der Team-Timeout-Counter ist als Ganzes klickbar: ein Klick beendet das Timeout. */
-    private void rebuildTimeoutRow(GameState state, VBox timeoutBox) {
-        TeamTimeout timeout = state.activeTimeoutProperty().get();
-        if (timeout == null) {
-            timeoutBox.getChildren().clear();
-            return;
-        }
-        Button row = new Button();
-        row.textProperty().bind(Bindings.createStringBinding(
-                () -> "🟩 Team-Timeout " + state.config().teamName(timeout.side()) + ": "
-                        + TimeFormatter.formatRemaining(timeout.remainingMillisProperty().get()) + "  ✕",
-                timeout.remainingMillisProperty()));
-        row.getStyleClass().add("game-timeout-row");
-        row.setMinWidth(Region.USE_PREF_SIZE);
-        row.setTooltip(new Tooltip("Klicken, um das Timeout zu beenden"));
-        row.setOnAction(e -> state.endTeamTimeout());
-        timeoutBox.getChildren().setAll(row);
-    }
-
-    private static String phaseText(GameState state) {
-        GameClock clock = state.clock();
-        GameConfig config = state.config();
-        GameMode mode = config.mode();
-        int period = clock.periodProperty().get();
-        return switch (clock.phaseProperty().get()) {
-            case NOT_STARTED -> "Bereit";
-            case RUNNING -> config.isOvertimePeriod(period)
-                    ? overtimeLabel(config, period) + " läuft"
-                    : mode.periodCount() > 1
-                            ? period + ". " + mode.periodName() + " läuft"
-                            : "Spielzeit läuft";
-            case PAUSED -> "Pausiert";
-            case HALF_TIME -> config.isOvertimePeriod(period)
-                    ? "Verlängerungspause" : mode.breakName();
-            case FINISHED -> {
-                Shootout shootout = state.shootoutProperty().get();
-                yield shootout != null && shootout.winnerProperty().get() == null
-                        ? "7-m-Werfen" : "Spielende";
-            }
-        };
-    }
-
-    /** Beschriftung des nächsten-Abschnitt-Knopfs passend zur aktuellen Spielsituation. */
-    private static String nextSegmentText(GameState state) {
-        GameClock clock = state.clock();
-        GameConfig config = state.config();
-        if (clock.phaseProperty().get() == GameClock.Phase.FINISHED) {
-            return "▶ " + config.overtimeNumber(clock.periodProperty().get() + 1)
-                    + ". Verlängerung starten";
-        }
-        int next = clock.periodProperty().get() + 1;
-        if (config.isOvertimePeriod(next)) {
-            return "⏭ " + config.overtimeHalf(next) + ". Halbzeit der Verlängerung starten";
-        }
-        return "⏭ " + next + ". " + config.mode().periodName() + " starten";
-    }
-
-    /** Name eines Verlängerungs-Abschnitts, z. B. „1. Verlängerung – 2. Halbzeit“. */
-    private static String overtimeLabel(GameConfig config, int period) {
-        String name = config.overtimeNumber(period) + ". Verlängerung";
-        return config.overtimeFormat().periodCount() > 1
-                ? name + " – " + config.overtimeHalf(period) + ". Halbzeit"
-                : name;
     }
 }
