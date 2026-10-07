@@ -124,12 +124,18 @@ final class ClockPane {
         HBox clockButtons = new HBox(10, startPauseButton, nextPeriodButton, shootoutButton,
                 endGameButton, setTimeButton);
         clockButtons.setAlignment(Pos.CENTER);
+        // die Knopfzeile darf schmaler werden als die Summe ihrer Mindestbreiten: In der letzten
+        // Periode („1. Verlängerung starten“) ist sie breiter als ihre Zelle und wird per
+        // fitToCellWidth eingepasst — sonst ragt sie in die Nachbarspalte, deren Fläche die
+        // Klicks auf die rechten Knöpfe abfängt
+        clockButtons.setMinWidth(0);
         ControlLayout.fitToCellWidth(clockButtons, HPos.LEFT);
 
         box = new VBox(6, clockLine, phaseLabel, clockButtons, new TimeoutBar(state).node());
         // mittig in der Raster-Zeile (wie die Uhr auf der Anzeige), damit bei
         // großen Fenstern kein Loch zwischen Uhr-Gruppe und Tor-Zeile entsteht
         box.setAlignment(Pos.CENTER);
+        box.setMinWidth(0);
     }
 
     Node node() {
