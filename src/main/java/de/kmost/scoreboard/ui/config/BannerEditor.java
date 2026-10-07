@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 import de.kmost.scoreboard.diagnostics.ProblemReporter;
 import de.kmost.scoreboard.store.LogoDownloader;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.BannerImageStore;
 import de.kmost.scoreboard.ui.BannerConfig;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -36,17 +36,17 @@ import javafx.stage.Window;
 final class BannerEditor {
 
     private final String slotPrefix;
-    private final ThemeRepository themeRepository;
+    private final BannerImageStore bannerImages;
     private final Window owner;
     private final Runnable onChange;
     private final TextField[] textFields = new TextField[BannerConfig.TEXT_SLOTS];
     private final File[] images = new File[BannerConfig.IMAGE_SLOTS];
     private final Label[] imageLabels = new Label[BannerConfig.IMAGE_SLOTS];
 
-    BannerEditor(String slotPrefix, BannerConfig initial, ThemeRepository themeRepository,
+    BannerEditor(String slotPrefix, BannerConfig initial, BannerImageStore bannerImages,
             Window owner, Runnable onChange) {
         this.slotPrefix = slotPrefix;
-        this.themeRepository = themeRepository;
+        this.bannerImages = bannerImages;
         this.owner = owner;
         this.onChange = onChange;
         for (int i = 0; i < BannerConfig.TEXT_SLOTS; i++) {
@@ -199,7 +199,7 @@ final class BannerEditor {
 
     /** Kopiert das Bild in die Datenbank und übernimmt es in den Slot. */
     private void storeImage(int index, File source) {
-        File stored = themeRepository.storeBannerImage(slotPrefix + "-" + (index + 1), source);
+        File stored = bannerImages.store(slotPrefix + "-" + (index + 1), source);
         if (stored == null) {
             warn("Bild konnte nicht gespeichert werden.");
             return;

@@ -8,7 +8,7 @@ import javax.imageio.ImageIO;
 
 import de.kmost.scoreboard.model.GameState;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.SettingsStores;
 import de.kmost.scoreboard.ui.display.DisplayWindow;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -29,7 +29,7 @@ public class ConfigPreview extends Application {
         var tempDir = Files.createTempDirectory("config-preview");
         DisplayWindow displayWindow = new DisplayWindow(new SimpleObjectProperty<GameState>());
         ConfigWindow configWindow = new ConfigWindow(primaryStage, displayWindow,
-                new ThemeRepository(tempDir), new TeamRepository(tempDir),
+                SettingsStores.in(tempDir), new TeamRepository(tempDir),
                 new de.kmost.scoreboard.sound.Horn(), theme -> { }, name -> { });
 
         String width = System.getProperty("preview.width");

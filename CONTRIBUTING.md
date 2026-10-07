@@ -65,6 +65,9 @@ mvn test-compile org.codehaus.mojo:exec-maven-plugin:3.5.0:java \
   `ClockPane`, `ShootoutPane`, `PenaltyList`, `StatusBar` …), die sich an Bindings des
   `GameState` hängen, statt bei Zustandswechseln neu aufgebaut zu werden. Regeln („ist
   das jetzt möglich?“) gehören ins Model, die Bausteine binden nur daran.
+- **Dateien schreibt `store/` atomar** (`PropertiesFiles`: Temp-Datei, dann Umbenennen),
+  damit ein Absturz nie eine halbe Datei hinterlässt. Fehler gehen an den `ProblemReporter`,
+  nicht auf `System.err`.
 - **Keine neuen Laufzeit-Abhängigkeiten** ohne guten Grund: Die App soll als
   selbständige EXE/App paketierbar bleiben (Hupe wird z. B. zur Laufzeit
   generiert statt als Audio-Asset mitgeliefert).

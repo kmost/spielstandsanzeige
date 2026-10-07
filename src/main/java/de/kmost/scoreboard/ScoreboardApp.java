@@ -3,7 +3,7 @@ package de.kmost.scoreboard;
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.SettingsStores;
 import de.kmost.scoreboard.ui.control.ControlWindow;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
@@ -17,7 +17,7 @@ public class ScoreboardApp extends Application {
     public void start(Stage stage) {
         Horn horn = new Horn();
         ControlWindow control = new ControlWindow(stage, horn, new TeamRepository(),
-                new ThemeRepository(), new GameSnapshotStore());
+                SettingsStores.standard(), new GameSnapshotStore());
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {

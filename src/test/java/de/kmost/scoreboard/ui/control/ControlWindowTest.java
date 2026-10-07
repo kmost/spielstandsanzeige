@@ -32,7 +32,7 @@ import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.SettingsStores;
 import de.kmost.scoreboard.ui.FakeDialogs;
 import de.kmost.scoreboard.ui.FxTestSupport;
 import javafx.geometry.Bounds;
@@ -69,7 +69,7 @@ class ControlWindowTest {
 
     private ControlWindow newWindow(double width, double height) {
         return fx(() -> new ControlWindow(new Stage(), quietHorn(), new TeamRepository(dir),
-                new ThemeRepository(dir), snapshots, width, height, dialogs, exits::incrementAndGet));
+                SettingsStores.in(dir), snapshots, width, height, dialogs, exits::incrementAndGet));
     }
 
     // --- Hilfen ---

@@ -23,7 +23,7 @@ import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.sound.Horn;
 import de.kmost.scoreboard.store.GameSnapshotStore;
 import de.kmost.scoreboard.store.TeamRepository;
-import de.kmost.scoreboard.store.ThemeRepository;
+import de.kmost.scoreboard.store.SettingsStores;
 import de.kmost.scoreboard.ui.FxTestSupport;
 import javafx.application.Platform;
 import javafx.scene.image.WritableImage;
@@ -113,7 +113,7 @@ public final class ControlSnapshots {
                     try {
                         Path temp = Files.createTempDirectory("control-snapshots");
                         ControlWindow control = new ControlWindow(new Stage(), new Horn(new ProblemReporter(temp.resolve("horn.log"))),
-                                new TeamRepository(temp), new ThemeRepository(temp),
+                                new TeamRepository(temp), SettingsStores.in(temp),
                                 new GameSnapshotStore(temp), width, 700);
                         scenario.getValue().accept(control);
                         render(control, file.toFile());

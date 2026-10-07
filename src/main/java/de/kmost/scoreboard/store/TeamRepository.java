@@ -1,9 +1,6 @@
 package de.kmost.scoreboard.store;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -88,18 +85,14 @@ public class TeamRepository {
         if (!Files.exists(file)) {
             return;
         }
-        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            teams.load(reader);
+        try {
+            teams.putAll(PropertiesFiles.load(file));
         } catch (IOException e) {
             reporter.report("Team-Datenbank nicht lesbar", e);
         }
     }
 
     private void store() throws IOException {
-        Files.createDirectories(baseDir);
-        try (Writer writer = Files.newBufferedWriter(
-                baseDir.resolve(PROPERTIES_FILE), StandardCharsets.UTF_8)) {
-            teams.store(writer, "Teams der Spielstandsanzeige");
-        }
+        PropertiesFiles.store(baseDir.resolve(PROPERTIES_FILE), teams, "Teams der Spielstandsanzeige");
     }
 }
