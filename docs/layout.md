@@ -2,7 +2,9 @@
 
 Dieses Dokument beschreibt das Raster der Publikumsanzeige (`ui/display`):
 welche Zonen es gibt, wie sich ihre Größen berechnen und wo die Werte im Code
-stehen. Stand: 2026-07-21.
+stehen. Maßgeblich sind die Konstanten im Code (`DisplayWindow`, `Banner`); die
+Zonenaufteilung prüft `DisplayWindowTest`. Ändert sich eine Konstante, wird dieses
+Dokument im selben Commit angepasst.
 
 ## Überblick
 
