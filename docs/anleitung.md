@@ -109,7 +109,7 @@ nötig.
   Toranzeige um ein Drittel kleiner, und in der Mitte erscheint darunter eine große Liste der Würfe (Rundennummern, Zeilen
   „Heim“ und „Gast“, ⚽ Tor, ✋ Fehlwurf — dieselbe Tabelle wie im
   Kampfgericht; die ersten fünf Runden stehen von Anfang an darin, höchstens
-  15 Runden). Sie bleibt nach der Siegermeldung
+  10 Runden). Sie bleibt nach der Siegermeldung
   stehen. Eine Fehleingabe machen Sie mit **„↩ Wurf zurücknehmen“**
   rückgängig.
 - Soll das **Unentschieden stehen bleiben**, beenden Sie das Spiel mit

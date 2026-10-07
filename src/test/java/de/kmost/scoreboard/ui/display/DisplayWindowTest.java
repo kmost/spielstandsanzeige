@@ -28,6 +28,7 @@ import de.kmost.scoreboard.model.SportProfile;
 import de.kmost.scoreboard.model.TeamSide;
 import de.kmost.scoreboard.ui.BannerConfig;
 import de.kmost.scoreboard.ui.FxTestSupport;
+import de.kmost.scoreboard.ui.ShootoutTable;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Bounds;
@@ -510,7 +511,7 @@ class DisplayWindowTest {
     }
 
     @Test
-    void shootoutListDropsOldestRoundsWithEllipsisAfterFifteenRounds() {
+    void shootoutListDropsOldestRoundsWithEllipsisAfterTheVisibleRounds() {
         DisplayWindow window = window(1280, 720);
         GameState state = newState("Heim", "Gast");
         fx(() -> {
@@ -523,12 +524,13 @@ class DisplayWindowTest {
             layout(window.scene());
         });
         List<String> numbers = texts(window, "shootout-number");
-        assertEquals(15, numbers.size());
-        assertEquals("4", numbers.get(0));
-        assertEquals("18", numbers.get(14));
+        int visible = ShootoutTable.VISIBLE_ROUNDS;
+        assertEquals(visible, numbers.size());
+        assertEquals(String.valueOf(18 - visible + 1), numbers.get(0));
+        assertEquals("18", numbers.get(visible - 1));
         assertEquals(2, texts(window, "shootout-symbol").stream().filter("…"::equals).count(),
                 "je Team eine Auslassung für die verdrängten Runden");
-        assertEquals(15, symbols(window, TeamSide.HOME).stream().filter("⚽"::equals).count());
+        assertEquals(visible, symbols(window, TeamSide.HOME).stream().filter("⚽"::equals).count());
     }
 
     @ParameterizedTest(name = "{0}×{1}")
