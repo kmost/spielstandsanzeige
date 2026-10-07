@@ -149,7 +149,7 @@ jobs:
           Get-Content target/SHA256SUMS.txt
 
       - name: Anleitung-PDF übernehmen
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: anleitung-pdf
           path: target/anleitung
