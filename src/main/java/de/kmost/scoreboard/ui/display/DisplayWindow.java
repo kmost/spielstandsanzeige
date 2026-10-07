@@ -1,5 +1,7 @@
 package de.kmost.scoreboard.ui.display;
 
+import static de.kmost.scoreboard.ui.display.DisplayLayout.*;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -77,26 +79,6 @@ import javafx.stage.Stage;
  */
 public class DisplayWindow {
 
-    /** Sichtbarer Abstand zwischen Banner und Spielstand (Anteil der Fensterhöhe);
-     *  geht zulasten des Spielstands, damit die Banner-Anteile exakt stimmen. */
-    private static final double BANNER_GAP = 0.02;
-
-    // Standard-Schriftgrößen (in em der Basisgröße) der skalierbaren Spielstand-Elemente;
-    // display.css setzt für diese Klassen bewusst keine font-size, die kommt von hier
-    private static final double CLOCK_EM = 5.2;
-    private static final double SCORE_EM = 6.0;
-    private static final double TEAM_NAME_EM = 1.1;
-    private static final double PENALTY_EM = 1.4;
-    private static final double TIMEOUT_EM = 1.0;
-    private static final double TIMEOUT_DOTS_EM = 0.85;
-    private static final double PHASE_EM = 1.1;
-
-    // Standard-Höhenanteile der drei Spielstand-Zeilen; werden mit den Größenfaktoren
-    // gewichtet und auf 100 % normalisiert (Summe bei Standardfaktoren = 1)
-    private static final double ROW_CLOCK = 0.38;
-    private static final double ROW_SCORE = 0.38;
-    private static final double ROW_NAMES = 0.24;
-
     private final Stage stage = new Stage();
     // Inhalt + Footer untereinander; der Inhalt bekommt die gesamte Resthöhe
     private final BorderPane content = new BorderPane();
@@ -136,11 +118,8 @@ public class DisplayWindow {
         // abzüglich der sichtbaren Banner-Anteile), aber durch die Breite gedeckelt,
         // damit Uhr und Strafen-Chips auch in schmalen Fenstern vollständig in ihre
         // Prozent-Spalten passen statt abgeschnitten zu werden (alle Größen im CSS sind
-        // in em, der Faktor 0.029 ist auf die breiteste Zeile — den Strafen-Chip in der
-        // 25%-Spalte, abzüglich des äußeren Rasterabstands — ausgelegt; bei 16:9 und
-        // breiter greift weiterhin die Höhe; 0.0625 entspricht den früheren 5 % der
-        // Fensterhöhe bei zwei sichtbaren Standard-Bannern: 0.05 / 0.8; vergrößerte
-        // Strafen-Chips passen sich zusätzlich per fitToWidth in ihre Spalte ein)
+        // in em; Herleitung der Faktoren: DisplayLayout; vergrößerte Strafen-Chips
+        // passen sich zusätzlich per fitToWidth in ihre Spalte ein)
         root.styleProperty().bind(Bindings.createStringBinding(
                 () -> {
                     double contentHeight = scene.getHeight()
@@ -152,7 +131,8 @@ public class DisplayWindow {
                     // Zeile, schrumpft die Basisgröße im Gegenzug — die Schrift jedes
                     // Elements behält dadurch ihr Verhältnis zur eigenen Zeilenhöhe
                     return String.format(Locale.US, "-fx-font-size: %.1fpx; ",
-                            Math.max(10, Math.min(contentHeight * 0.0625, scene.getWidth() * 0.029))
+                            Math.max(BASE_FONT_MIN_PX, Math.min(contentHeight * BASE_FONT_HEIGHT_SHARE,
+                                    scene.getWidth() * BASE_FONT_WIDTH_SHARE))
                                     / rowWeightSum())
                             + themeCss.get();
                 },
@@ -249,8 +229,7 @@ public class DisplayWindow {
         clockBox.setAlignment(Pos.CENTER);
 
         GridPane topRow = new GridPane();
-        topRow.getColumnConstraints().addAll(
-                percentColumn(25), percentColumn(50), percentColumn(25));
+        topRow.getColumnConstraints().addAll(percentColumns(CLOCK_ROW_COLUMNS));
         topRow.setAlignment(Pos.CENTER);
         topRow.add(buildPenaltyColumn(state, TeamSide.HOME), 0, 0);
         topRow.add(clockBox, 1, 0);
@@ -289,8 +268,7 @@ public class DisplayWindow {
         periodLabel.layoutBoundsProperty().addListener(refitPeriod);
 
         GridPane scoreRow = new GridPane();
-        scoreRow.getColumnConstraints().addAll(
-                percentColumn(42), percentColumn(16), percentColumn(42));
+        scoreRow.getColumnConstraints().addAll(percentColumns(SCORE_ROW_COLUMNS));
         scoreRow.setAlignment(Pos.CENTER);
         scoreRow.add(buildScoreCell(state, TeamSide.HOME), 0, 0);
         scoreRow.add(periodBox, 1, 0);
@@ -298,8 +276,7 @@ public class DisplayWindow {
 
         // gleiche Spalten wie die Torzeile, damit die Namen exakt unter den Toren stehen
         GridPane nameRow = new GridPane();
-        nameRow.getColumnConstraints().addAll(
-                percentColumn(42), percentColumn(16), percentColumn(42));
+        nameRow.getColumnConstraints().addAll(percentColumns(SCORE_ROW_COLUMNS));
         nameRow.setAlignment(Pos.TOP_CENTER);
         nameRow.add(buildNameCell(state, TeamSide.HOME), 0, 0);
         nameRow.add(buildNameCell(state, TeamSide.GUEST), 2, 0);
@@ -314,7 +291,8 @@ public class DisplayWindow {
                 weightedRow(ROW_CLOCK, clockScale),
                 weightedRow(ROW_SCORE, scoreScale),
                 weightedRow(ROW_NAMES, nameScale));
-        outer.setPadding(new Insets(10, 15, 10, 15));
+        outer.setPadding(new Insets(GRID_PADDING_VERTICAL, GRID_PADDING_HORIZONTAL,
+                GRID_PADDING_VERTICAL, GRID_PADDING_HORIZONTAL));
         outer.add(topRow, 0, 0);
         outer.add(scoreRow, 0, 1);
         outer.add(nameRow, 0, 2);
@@ -403,6 +381,12 @@ public class DisplayWindow {
                 scale));
     }
 
+    private static ColumnConstraints[] percentColumns(double... percents) {
+        return java.util.Arrays.stream(percents)
+                .mapToObj(DisplayWindow::percentColumn)
+                .toArray(ColumnConstraints[]::new);
+    }
+
     private static ColumnConstraints percentColumn(double percent) {
         ColumnConstraints column = new ColumnConstraints();
         column.setPercentWidth(percent);
@@ -448,7 +432,7 @@ public class DisplayWindow {
         bindFontSize(nameLabel, TEAM_NAME_EM, nameScale);
         nameLabel.setWrapText(true);
         // Breite begrenzen, damit lange Namen umbrechen statt in die andere Hälfte zu laufen
-        nameLabel.maxWidthProperty().bind(scene.widthProperty().multiply(0.40));
+        nameLabel.maxWidthProperty().bind(scene.widthProperty().multiply(TEAM_NAME_MAX_WIDTH_SHARE));
         nameLabel.setAlignment(Pos.CENTER);
         nameLabel.setTextAlignment(TextAlignment.CENTER);
 
@@ -471,13 +455,12 @@ public class DisplayWindow {
                 bindShootoutLine(shootoutLine, shootout, side));
         bindShootoutLine(shootoutLine, state.shootoutProperty().get(), side);
 
-        VBox cell = new VBox(4, nameLabel, timeoutDots, shootoutLine);
+        VBox cell = new VBox(NAME_CELL_SPACING, nameLabel, timeoutDots, shootoutLine);
         cell.setAlignment(Pos.TOP_CENTER);
         return cell;
     }
 
     /** Sichtbare Würfe je Team; ältere verlassen die Anzeige per „…“ statt die jüngsten abzuschneiden. */
-    private static final int SHOOTOUT_VISIBLE_ATTEMPTS = 7;
 
     private static void bindShootoutLine(Label label, Shootout shootout, TeamSide side) {
         label.textProperty().unbind();
@@ -497,7 +480,7 @@ public class DisplayWindow {
      * Spalte proportional eingepasst statt die Zeiten mit „…“ zu kürzen.
      */
     private Node buildPenaltyColumn(GameState state, TeamSide side) {
-        VBox column = new VBox(10);
+        VBox column = new VBox(PENALTY_COLUMN_SPACING);
         column.setAlignment(side == TeamSide.HOME ? Pos.TOP_LEFT : Pos.TOP_RIGHT);
         // Mindestmaße der Chips dürfen die 25%-Spalte nicht aufweiten: Überbreite
         // fängt die Einpassung ab, zu viele Chips übereinander schneidet der Clip ab

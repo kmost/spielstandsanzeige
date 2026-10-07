@@ -1,5 +1,7 @@
 package de.kmost.scoreboard.ui.display;
 
+import static de.kmost.scoreboard.ui.display.DisplayLayout.*;
+
 import java.io.File;
 import java.util.Locale;
 
@@ -27,7 +29,7 @@ import javafx.scene.transform.Scale;
 /**
  * Header- oder Footer-Zeile der Publikumsanzeige: eine mittige Zeile aus Texten
  * und Bildern in Rasterreihenfolge (Text 1, Bild 1, Text 2, …), deren Höhe als
- * fester Anteil der Fensterhöhe reserviert ist ({@link #SHARE} mal
+ * fester Anteil der Fensterhöhe reserviert ist ({@link DisplayLayout#BANNER_SHARE} mal
  * Theme-Größenfaktor) und deren Schrift direkt an dieser Zonenhöhe hängt — das
  * äußere Raster hängt dadurch nur an der Konfiguration, nicht am Inhalt. Ohne
  * anzeigbaren Inhalt ist der Banner ausgeblendet (unmanaged) und gibt seinen
@@ -35,16 +37,10 @@ import javafx.scene.transform.Scale;
  */
 final class Banner {
 
-    /** Höhenanteil eines sichtbaren Banners bei Standardgröße (Raster 10:80:10). */
-    static final double SHARE = 0.10;
-
-    /** Schriftgröße als Anteil der Bannerhöhe (0.45 · 10 % = 4,5 % der Fensterhöhe). */
-    private static final double FONT_SHARE = 0.45;
-
     private final Scene scene;
     private final HBox node = new HBox();
-    // tatsächlicher Höhenanteil: SHARE mal Theme-Größenfaktor
-    private final DoubleProperty share = new SimpleDoubleProperty(SHARE);
+    // tatsächlicher Höhenanteil: BANNER_SHARE mal Theme-Größenfaktor
+    private final DoubleProperty share = new SimpleDoubleProperty(BANNER_SHARE);
     private final ObjectProperty<BannerConfig> config =
             new SimpleObjectProperty<>(BannerConfig.empty());
     // verkleinert die ganze Zeile, wenn der Inhalt breiter ist als das Fenster
@@ -54,8 +50,9 @@ final class Banner {
     Banner(Scene scene, String styleClass) {
         this.scene = scene;
         node.setAlignment(Pos.CENTER);
-        node.spacingProperty().bind(scene.widthProperty().multiply(0.015));
-        node.setPadding(new Insets(2, 15, 2, 15));
+        node.spacingProperty().bind(scene.widthProperty().multiply(BANNER_SLOT_SPACING_SHARE));
+        node.setPadding(new Insets(BANNER_PADDING_VERTICAL, BANNER_PADDING_HORIZONTAL,
+                BANNER_PADDING_VERTICAL, BANNER_PADDING_HORIZONTAL));
         // feste, an die Fensterhöhe gebundene Höhe: die bevorzugte Höhe der Kinder
         // hinge sonst von Schriftart und em-Schriftgröße ab
         node.prefHeightProperty().bind(scene.heightProperty().multiply(share));
@@ -66,7 +63,7 @@ final class Banner {
         // Basis-em-Größe des Spielstands, die bei größeren Bannern ja kleiner wird)
         node.styleProperty().bind(Bindings.createStringBinding(
                 () -> String.format(Locale.US, "-fx-font-size: %.1fpx; ",
-                        FONT_SHARE * scene.getHeight() * share.get()),
+                        BANNER_FONT_SHARE * scene.getHeight() * share.get()),
                 scene.heightProperty(), share));
         // Passt der Inhalt nicht in die Fensterbreite, wird die komplette Zeile
         // (Texte und Bilder gemeinsam) proportional verkleinert — es wird nie
@@ -102,10 +99,10 @@ final class Banner {
 
     /** Theme-Größenfaktor: skaliert Zonenhöhe und Schrift gemeinsam. */
     void setScale(double factor) {
-        share.set(SHARE * factor);
+        share.set(BANNER_SHARE * factor);
     }
 
-    /** Tatsächlicher Höhenanteil an der Fensterhöhe (SHARE mal Faktor). */
+    /** Tatsächlicher Höhenanteil an der Fensterhöhe (BANNER_SHARE mal Faktor). */
     ReadOnlyDoubleProperty shareProperty() {
         return share;
     }
