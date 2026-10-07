@@ -398,10 +398,13 @@ class DisplayWindowTest {
             double inner = width - 30;
             assertTrue(list.getMinX() >= 15 + 0.25 * inner - 1 && list.getMaxX() <= 15 + 0.75 * inner + 1,
                     "Liste liegt in der Mittelspalte: " + list);
-            // und endet vor der Torzeile
-            double scoreTop = labels(window, "score").stream().mapToDouble(l -> sceneBounds(l).getMinY())
+            // und endet vor den Torzahlen. Gemessen wird am oberen Rand der Ziffern, nicht am Label: Das Label
+            // enthält je nach Schrift (Windows: System/Segoe UI) viel Luft über den Ziffern und ragt weit in die
+            // darüberliegende Zeile; Ziffern sind etwa 0,72 em hoch und sitzen mittig im Label
+            double scoreTop = labels(window, "score").stream()
+                    .mapToDouble(l -> sceneBounds(l).getCenterY() - 0.36 * l.getFont().getSize())
                     .min().orElseThrow();
-            assertTrue(list.getMaxY() <= scoreTop + 1, "Liste endet vor der Torzeile: " + list);
+            assertTrue(list.getMaxY() <= scoreTop + 1, "Liste endet vor den Torzahlen: " + list + " Ziffernoberkante " + scoreTop);
 
             // die Tore-Zeile ist beim 7-m-Werfen um 33 % kleiner (Zeilenhöhe und Torzahl-Schrift) ...
             Label score = labels(window, "score").get(0);
