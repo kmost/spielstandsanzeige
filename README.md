@@ -118,9 +118,48 @@ an das Release an:
   `Spielstandsanzeige.exe` direkt starten (z. B. vom USB-Stick)
 
 Release-Tags im Format `v1.2.3` mit Hauptversion ≥ 1 verwenden (Vorgabe von
-jpackage). Hinweis: Die EXE ist nicht signiert — Windows SmartScreen zeigt beim
-ersten Start eine Warnung, die sich über „Weitere Informationen → Trotzdem
-ausführen" bestätigen lässt.
+jpackage). Das Release enthält zusätzlich `SHA256SUMS.txt` mit den Prüfsummen von
+Installer und ZIP.
+
+### Windows SmartScreen und Virenscanner
+
+Die EXE-Dateien sind noch nicht digital signiert. Windows SmartScreen oder Defender
+zeigen deshalb beim ersten Start gelegentlich eine Warnung oder blockieren die Datei,
+weil neue, wenig verbreitete Programme keine „Reputation“ haben. Was hilft:
+
+- **SmartScreen-Warnung:** „Weitere Informationen“ → „Trotzdem ausführen“.
+- **Portable ZIP:** Vor dem Entpacken Rechtsklick auf die ZIP-Datei → „Eigenschaften“ →
+  „Zulassen“ anhaken → „OK“. Sonst erben alle entpackten Dateien die Download-Markierung
+  und werden einzeln geprüft.
+- **Installer statt ZIP:** Der Installer wird erfahrungsgemäß seltener blockiert als die
+  lose, portable EXE.
+- **Echtheit prüfen:** Die Prüfsumme der heruntergeladenen Datei mit `SHA256SUMS.txt`
+  vergleichen:
+
+  ```powershell
+  Get-FileHash .\Spielstandsanzeige-1.2.0-windows-portable.zip -Algorithm SHA256
+  # oder: certutil -hashfile Spielstandsanzeige-1.2.0-windows-portable.zip SHA256
+  ```
+
+  Der Hash muss mit dem Eintrag in `SHA256SUMS.txt` übereinstimmen (Groß-/Kleinschreibung
+  egal).
+
+### Code-Signing-Policy
+
+*Entwurf — die Signierung ist noch nicht aktiv.* Geplant ist, die Windows-Dateien über
+die SignPath Foundation signieren zu lassen:
+
+> Free code signing provided by [SignPath.io](https://signpath.io), certificate by
+> [SignPath Foundation](https://signpath.org).
+
+- **Was signiert wird:** ausschließlich Dateien, die der GitHub-Actions-Workflow
+  [`release-windows.yml`](.github/workflows/release-windows.yml) aus dem öffentlichen
+  Quellcode dieses Repositories baut (Installer-EXE und `Spielstandsanzeige.exe`).
+- **Rollen:** Committer, Reviewer und Approver ist der Projektinhaber
+  ([Knut Most](https://github.com/kmost)). Jede Signierung wird einzeln freigegeben.
+- **Datenschutz:** Die Anwendung überträgt keine Daten an Dritte. Die einzige
+  Netzwerkverbindung ist der Bild-Download für Banner, den Sie selbst über „Bild aus dem
+  Internet“ auslösen. Alle Einstellungen bleiben lokal unter `~/.spielstandsanzeige/`.
 
 ## Andere Sportarten
 
